@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.backends._legacy:_Backend"
+
+[project]
+name = "reticulum-newsnet"
+version = "0.1.0"
+description = "Usenet-inspired P2P threaded discussions on the Reticulum Network"
+requires-python = ">=3.11"
+dependencies = [
+    "rns>=0.7.0",
+    "umsgpack>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+]
+
+[project.scripts]
+newsnet = "cli.main:main"

@@ -1,0 +1,15 @@
+# Reticulum-Newsnet Configuration
+
+# Your display name shown to other users
+display_name = "your_name_here"
+
+# How long to keep articles, in hours (1-720, default: 168 = 7 days)
+# This controls both local retention and sync window
+retention_hours = 168
+
+# How often to sync with known peers, in minutes (default: 15)
+sync_interval_minutes = 15
+
+# When true, discard filtered articles on receipt (never store or forward)
+# When false, store everything and filter only on display
+strict_filtering = true
