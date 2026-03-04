@@ -85,6 +85,31 @@ def test_to_dict():
     assert isinstance(d["received_at"], float)
 
 
+def test_from_store_dict_roundtrip():
+    identity = make_mock_identity()
+    article = Article.create(identity, "Alice", "test.general", "Hello", "World", ["ref1", "ref2"])
+    store_dict = article.to_store_dict()
+    restored = Article.from_store_dict(store_dict)
+    assert restored.message_id == article.message_id
+    assert restored.author_hash == article.author_hash
+    assert restored.author_key == article.author_key
+    assert restored.display_name == article.display_name
+    assert restored.newsgroup == article.newsgroup
+    assert restored.subject == article.subject
+    assert restored.body == article.body
+    assert restored.references == ["ref1", "ref2"]
+    assert restored.timestamp == article.timestamp
+    assert restored.signature == article.signature
+
+
+def test_from_store_dict_empty_references():
+    identity = make_mock_identity()
+    article = Article.create(identity, "Alice", "test.general", "Hello", "World", [])
+    store_dict = article.to_store_dict()
+    restored = Article.from_store_dict(store_dict)
+    assert restored.references == []
+
+
 def test_unicode_body():
     identity = make_mock_identity()
     body = "Hei verden! \U0001f30d \u00e6\u00f8\u00e5 \u4e16\u754c \u0417\u0434\u0440\u0430\u0432\u0441\u0442\u0432\u0443\u0439"

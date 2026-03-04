@@ -76,6 +76,12 @@ def test_parser_filter_list():
     assert args.filter_command == "list"
 
 
+def test_parser_announce():
+    parser = build_parser()
+    args = parser.parse_args(["announce"])
+    assert args.command == "announce"
+
+
 def test_parser_filter_remove():
     parser = build_parser()
     args = parser.parse_args(["filter", "remove", "5"])

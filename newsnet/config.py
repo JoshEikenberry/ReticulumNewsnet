@@ -11,12 +11,15 @@ class NewsnetConfig:
     retention_hours: int = 168
     sync_interval_minutes: int = 15
     strict_filtering: bool = True
+    config_dir_override: str | None = None
 
     def __post_init__(self):
         self.retention_hours = max(1, min(720, self.retention_hours))
 
     @property
     def config_dir(self) -> Path:
+        if self.config_dir_override:
+            return Path(self.config_dir_override)
         return Path.home() / ".config" / "reticulum-newsnet"
 
     @property

@@ -11,6 +11,10 @@ def build_parser() -> argparse.ArgumentParser:
         prog="newsnet",
         description="Reticulum-Newsnet: P2P threaded discussions",
     )
+    parser.add_argument(
+        "--config-dir", "-d", default=None,
+        help="Custom config directory (for running multiple instances)",
+    )
     sub = parser.add_subparsers(dest="command")
 
     # post
@@ -31,6 +35,9 @@ def build_parser() -> argparse.ArgumentParser:
 
     # sync
     sub.add_parser("sync", help="Trigger sync with all peers")
+
+    # announce
+    sub.add_parser("announce", help="Announce presence to the network")
 
     # peers
     sub.add_parser("peers", help="List known peers")
@@ -149,6 +156,29 @@ def cmd_filter(node, args):
         print(f"Filter {args.filter_id} removed.")
 
 
+def cmd_sync(node, args):
+    node.announce()
+    count = node.sync_all_peers()
+    if count == 0:
+        print("No peers to sync with.")
+    else:
+        print(f"Sync initiated with {count} peer(s). Waiting for transfers...")
+        import time
+        time.sleep(5)
+        print("Sync complete.")
+
+
+def cmd_announce(node, args):
+    node.announce()
+    print(f"Announced as {node.config.display_name}")
+
+
+def cmd_tui(node, args):
+    from tui.app import NewsnetApp
+    app = NewsnetApp(node)
+    app.run()
+
+
 COMMANDS = {
     "post": cmd_post,
     "read": cmd_read,
@@ -157,8 +187,9 @@ COMMANDS = {
     "peers": cmd_peers,
     "identity": cmd_identity,
     "filter": cmd_filter,
-    "sync": lambda node, args: print("Sync triggered (not yet implemented)"),
-    "tui": lambda node, args: print("TUI not yet implemented"),
+    "sync": lambda node, args: cmd_sync(node, args),
+    "announce": lambda node, args: cmd_announce(node, args),
+    "tui": lambda node, args: cmd_tui(node, args),
 }
 
 
@@ -172,11 +203,13 @@ def main():
     from newsnet.config import NewsnetConfig
     from newsnet.node import Node
 
-    config_path = NewsnetConfig().config_file_path
+    base_config = NewsnetConfig(config_dir_override=args.config_dir)
+    config_path = base_config.config_file_path
     if config_path.exists():
         config = NewsnetConfig.from_file(config_path)
+        config.config_dir_override = args.config_dir
     else:
-        config = NewsnetConfig()
+        config = base_config
 
     node = Node(config)
     node.start()

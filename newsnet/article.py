@@ -97,6 +97,24 @@ class Article:
             signature=d["signature"],
         )
 
+    @classmethod
+    def from_store_dict(cls, d: dict) -> Article:
+        refs = d.get("references") or "[]"
+        if isinstance(refs, str):
+            refs = json.loads(refs)
+        return cls(
+            message_id=d["message_id"],
+            author_hash=d["author_hash"],
+            author_key=d["author_key"],
+            display_name=d["display_name"],
+            newsgroup=d["newsgroup"],
+            subject=d["subject"],
+            body=d["body"],
+            references=refs,
+            timestamp=d["timestamp"],
+            signature=d["signature"],
+        )
+
     def to_store_dict(self) -> dict:
         return {
             "message_id": self.message_id,

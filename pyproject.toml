@@ -10,6 +10,7 @@ requires-python = ">=3.11"
 dependencies = [
     "rns>=0.7.0",
     "umsgpack>=0.1.0",
+    "textual>=0.50.0",
 ]
 
 [project.optional-dependencies]

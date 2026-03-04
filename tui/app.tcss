@@ -1,0 +1,54 @@
+#main-panels {
+    height: 2fr;
+}
+
+#groups-list {
+    width: 1fr;
+    border: solid $accent;
+    border-title-color: $text;
+}
+
+#articles-table {
+    width: 3fr;
+    border: solid $accent;
+}
+
+#reader {
+    height: 1fr;
+    border: solid $accent;
+    padding: 0 1;
+}
+
+#reader-content {
+    width: 1fr;
+}
+
+ComposeScreen {
+    layout: vertical;
+}
+
+ComposeScreen #compose-title {
+    text-style: bold;
+    padding: 1 0;
+    color: $accent;
+}
+
+ComposeScreen Label {
+    padding: 0 0 0 0;
+    margin-top: 1;
+}
+
+ComposeScreen Input {
+    margin-bottom: 0;
+}
+
+ComposeScreen TextArea {
+    height: 1fr;
+}
+
+ComposeScreen #compose-help {
+    dock: bottom;
+    padding: 1;
+    background: $surface;
+    color: $text-muted;
+}
