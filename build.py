@@ -1,30 +1,25 @@
 #!/usr/bin/env python3
-"""Build standalone newsnet executable using PyInstaller."""
+"""Build standalone newsnet executable using PyInstaller.
+
+RNS uses dynamic module discovery (glob.glob on .py files) that breaks in
+frozen PyInstaller builds. This script patches the installed RNS source
+before building, then restores it afterward.
+"""
 
 import importlib.util
 import shutil
 import subprocess
 import sys
-import textwrap
 from pathlib import Path
 
-# RNS.Interfaces.__init__ uses glob.glob() to discover modules on disk.
-# In a PyInstaller frozen bundle there are no .py files, so __all__ is empty
-# and `from RNS.Interfaces import *` imports nothing. We patch the installed
-# copy before building so all interface names are statically listed.
+# --------------------------------------------------------------------------- #
+# Patches for RNS source files
+# --------------------------------------------------------------------------- #
 
-PATCHED_INTERFACES_INIT = textwrap.dedent("""\
-    import os
-    import glob
-    import RNS.Interfaces.Android
-    import RNS.Interfaces.util
-    import RNS.Interfaces.util.netinfo as netinfo
-
-    # Explicit imports for PyInstaller compatibility.
-    # The original code uses glob.glob() to discover .py files and build __all__,
-    # then Reticulum.py does `from RNS.Interfaces import *`. In a frozen bundle
-    # glob finds nothing, so we explicitly import every interface module here
-    # to ensure they exist as attributes on this package.
+# RNS/Reticulum.py — replace the wildcard import with explicit imports
+# (mirrors what RNS already does for the Android branch)
+RETICULUM_OLD = "    from RNS.Interfaces import *"
+RETICULUM_NEW = """\
     from RNS.Interfaces import Interface
     from RNS.Interfaces import LocalInterface
     from RNS.Interfaces import AutoInterface
@@ -38,74 +33,66 @@ PATCHED_INTERFACES_INIT = textwrap.dedent("""\
     from RNS.Interfaces import AX25KISSInterface
     from RNS.Interfaces import RNodeInterface
     from RNS.Interfaces import RNodeMultiInterface
-    from RNS.Interfaces import WeaveInterface
-
-    __all__ = [
-        "Interface",
-        "LocalInterface",
-        "AutoInterface",
-        "BackboneInterface",
-        "TCPInterface",
-        "UDPInterface",
-        "I2PInterface",
-        "SerialInterface",
-        "PipeInterface",
-        "KISSInterface",
-        "AX25KISSInterface",
-        "RNodeInterface",
-        "RNodeMultiInterface",
-        "WeaveInterface",
-    ]
-""")
+    from RNS.Interfaces import WeaveInterface"""
 
 
-def _find_rns_interfaces_init() -> Path | None:
-    spec = importlib.util.find_spec("RNS.Interfaces")
-    if spec and spec.submodule_search_locations:
-        for loc in spec.submodule_search_locations:
-            init = Path(loc) / "__init__.py"
-            if init.exists():
-                return init
+def _find_rns_file(module_path: str) -> Path | None:
+    """Locate an installed RNS source file."""
+    spec = importlib.util.find_spec(module_path)
+    if spec and spec.origin:
+        p = Path(spec.origin)
+        if p.exists():
+            return p
     return None
 
 
-def _patch_rns():
-    """Patch RNS.Interfaces.__init__.py with a static fallback for __all__."""
-    init_path = _find_rns_interfaces_init()
-    if init_path is None:
-        print("WARNING: Could not find RNS.Interfaces.__init__.py — skipping patch")
+def _patch_file(path: Path, old: str, new: str) -> Path | None:
+    """Replace `old` with `new` in a file, backing up the original."""
+    content = path.read_text()
+    if old not in content:
+        print(f"  WARNING: patch target not found in {path.name}, skipping")
         return None
-
-    backup = init_path.with_suffix(".py.bak")
+    backup = path.with_suffix(path.suffix + ".bak")
     if not backup.exists():
-        shutil.copy2(init_path, backup)
-        print(f"Backed up {init_path} -> {backup.name}")
-
-    init_path.write_text(PATCHED_INTERFACES_INIT)
-    print(f"Patched {init_path}")
+        shutil.copy2(path, backup)
+    path.write_text(content.replace(old, new, 1))
+    print(f"  Patched {path}")
     return backup
 
 
-def _restore_rns(backup: Path | None):
-    if backup and backup.exists():
-        target = backup.with_suffix("")  # remove .bak
-        shutil.copy2(backup, target)
-        backup.unlink()
-        print(f"Restored original {target.name}")
+def _restore(backup: Path):
+    """Restore a backed-up file."""
+    target = backup.with_name(backup.name.removesuffix(".bak"))
+    shutil.copy2(backup, target)
+    backup.unlink()
+    print(f"  Restored {target}")
 
 
 def main():
-    backup = _patch_rns()
+    backups: list[Path] = []
+
+    # Patch RNS/Reticulum.py
+    print("Patching RNS for frozen build...")
+    ret_path = _find_rns_file("RNS.Reticulum")
+    if ret_path:
+        b = _patch_file(ret_path, RETICULUM_OLD, RETICULUM_NEW)
+        if b:
+            backups.append(b)
+    else:
+        print("  WARNING: Could not find RNS/Reticulum.py")
+
     try:
         cmd = [
             sys.executable, "-m", "PyInstaller",
             "--clean",
             "newsnet.spec",
         ]
-        print(f"Running: {' '.join(cmd)}")
+        print(f"\nRunning: {' '.join(cmd)}")
         result = subprocess.run(cmd)
     finally:
-        _restore_rns(backup)
+        print("\nRestoring patched files...")
+        for backup in backups:
+            _restore(backup)
 
     if result.returncode == 0:
         print("\nBuild complete! Executable is in dist/newsnet")
