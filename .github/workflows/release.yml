@@ -1,0 +1,77 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: newsnet-linux-x86_64
+            asset_name: newsnet-linux-x86_64
+          - os: windows-latest
+            artifact_name: newsnet.exe
+            asset_name: newsnet-windows-x86_64.exe
+          - os: macos-latest
+            artifact_name: newsnet
+            asset_name: newsnet-macos-arm64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install .[dev]
+
+      - name: Build executable
+        run: python build.py
+
+      - name: Rename artifact (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: mv dist/newsnet dist/${{ matrix.asset_name }}
+
+      - name: Rename artifact (macOS)
+        if: matrix.os == 'macos-latest'
+        run: mv dist/newsnet dist/${{ matrix.asset_name }}
+
+      - name: Rename artifact (Windows)
+        if: matrix.os == 'windows-latest'
+        run: mv dist/newsnet.exe dist/${{ matrix.asset_name }}
+        shell: bash
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset_name }}
+          path: dist/${{ matrix.asset_name }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true
+          files: |
+            artifacts/newsnet-linux-x86_64/newsnet-linux-x86_64
+            artifacts/newsnet-windows-x86_64.exe/newsnet-windows-x86_64.exe
+            artifacts/newsnet-macos-arm64/newsnet-macos-arm64
