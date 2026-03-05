@@ -88,7 +88,7 @@ a = Analysis(
         'RNS.vendor.i2plib.log',
         'RNS.vendor.i2plib.utils',
     ],
-    hookspath=['pyinstaller_hooks'],
+    hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
     excludes=[],
