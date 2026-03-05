@@ -20,10 +20,27 @@ PATCHED_INTERFACES_INIT = textwrap.dedent("""\
     import RNS.Interfaces.util
     import RNS.Interfaces.util.netinfo as netinfo
 
-    # Static module list for PyInstaller compatibility (glob won't find .py
-    # files inside a frozen bundle).  When running from source the glob path
-    # still works, but the static fallback guarantees correctness either way.
-    _static_modules = [
+    # Explicit imports for PyInstaller compatibility.
+    # The original code uses glob.glob() to discover .py files and build __all__,
+    # then Reticulum.py does `from RNS.Interfaces import *`. In a frozen bundle
+    # glob finds nothing, so we explicitly import every interface module here
+    # to ensure they exist as attributes on this package.
+    from RNS.Interfaces import Interface
+    from RNS.Interfaces import LocalInterface
+    from RNS.Interfaces import AutoInterface
+    from RNS.Interfaces import BackboneInterface
+    from RNS.Interfaces import TCPInterface
+    from RNS.Interfaces import UDPInterface
+    from RNS.Interfaces import I2PInterface
+    from RNS.Interfaces import SerialInterface
+    from RNS.Interfaces import PipeInterface
+    from RNS.Interfaces import KISSInterface
+    from RNS.Interfaces import AX25KISSInterface
+    from RNS.Interfaces import RNodeInterface
+    from RNS.Interfaces import RNodeMultiInterface
+    from RNS.Interfaces import WeaveInterface
+
+    __all__ = [
         "Interface",
         "LocalInterface",
         "AutoInterface",
@@ -39,12 +56,6 @@ PATCHED_INTERFACES_INIT = textwrap.dedent("""\
         "RNodeMultiInterface",
         "WeaveInterface",
     ]
-
-    py_modules  = glob.glob(os.path.dirname(__file__)+"/*.py")
-    pyc_modules = glob.glob(os.path.dirname(__file__)+"/*.pyc")
-    modules     = py_modules+pyc_modules
-    _discovered = list(set([os.path.basename(f).replace(".pyc", "").replace(".py", "") for f in modules if not (f.endswith("__init__.py") or f.endswith("__init__.pyc"))]))
-    __all__ = _discovered if _discovered else _static_modules
 """)
 
 
