@@ -17,6 +17,7 @@ from textual.widgets import (
     Label,
     ListItem,
     ListView,
+    Select,
     Static,
     TextArea,
 )
@@ -72,12 +73,14 @@ class ComposeScreen(Screen):
         reply_newsgroup: str = "",
         reply_subject: str = "",
         reply_references: list[str] | None = None,
+        quoted_text: str = "",
         **kwargs,
     ):
         super().__init__(**kwargs)
         self._reply_newsgroup = reply_newsgroup
         self._reply_subject = reply_subject
         self._reply_references = reply_references or []
+        self._quoted_text = quoted_text
 
     def compose(self) -> ComposeResult:
         title = "Reply" if self._reply_references else "Compose New Article"
@@ -100,6 +103,8 @@ class ComposeScreen(Screen):
             ng_input.value = self._reply_newsgroup
             ng_input.disabled = True
             subj_input.value = self._reply_subject
+            if self._quoted_text:
+                self.query_one("#body-input", TextArea).text = self._quoted_text
             subj_input.focus()
         else:
             ng_input.focus()
@@ -128,6 +133,104 @@ class ComposeScreen(Screen):
         self.app.pop_screen()
 
 
+class AddFilterScreen(Screen):
+    """Screen for adding a new filter."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=False)
+        yield Label("Add Filter", id="filter-form-title")
+        yield Label("Type:")
+        yield Select(
+            [("Author", "author"), ("Newsgroup", "newsgroup"), ("Word", "word")],
+            id="filter-type-select",
+            value="author",
+        )
+        yield Label("Mode:")
+        yield Select(
+            [("Block", "blacklist"), ("Allow", "whitelist")],
+            id="filter-mode-select",
+            value="blacklist",
+        )
+        yield Label("Pattern:")
+        yield Input(placeholder="e.g. spammer123 or spam.*", id="filter-pattern-input")
+        yield Static("[Ctrl+S] to save | [Escape] to cancel", id="filter-form-help")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one("#filter-pattern-input", Input).focus()
+
+    def key_ctrl_s(self) -> None:
+        filter_type = self.query_one("#filter-type-select", Select).value
+        filter_mode = self.query_one("#filter-mode-select", Select).value
+        pattern = self.query_one("#filter-pattern-input", Input).value.strip()
+
+        if not pattern:
+            self.notify("Pattern is required", severity="error")
+            return
+
+        self.app._node.filter_store.add_filter(filter_type, filter_mode, pattern)
+        self.notify(f"Added {filter_mode} {filter_type} filter: {pattern}")
+        self.app.pop_screen()
+
+    def action_cancel(self) -> None:
+        self.app.pop_screen()
+
+
+class FilterScreen(Screen):
+    """Screen for viewing and managing filters."""
+
+    BINDINGS = [
+        Binding("a", "add_filter", "Add"),
+        Binding("d", "delete_filter", "Delete"),
+        Binding("delete", "delete_filter", "Delete"),
+        Binding("escape", "go_back", "Back"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=False)
+        yield Label("Filters", id="filter-title")
+        yield DataTable(id="filter-table")
+        yield Static("[a] Add | [d/Delete] Remove | [Escape] Back", id="filter-help")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        table = self.query_one("#filter-table", DataTable)
+        table.add_columns("Type", "Mode", "Pattern")
+        table.cursor_type = "row"
+        self._load_filters()
+
+    def _load_filters(self) -> None:
+        table = self.query_one("#filter-table", DataTable)
+        table.clear()
+        self._filters = self.app._node.filter_store.list_filters()
+        for f in self._filters:
+            table.add_row(f["filter_type"], f["filter_mode"], f["pattern"])
+
+    def on_screen_resume(self) -> None:
+        self._load_filters()
+
+    def action_add_filter(self) -> None:
+        self.app.push_screen(AddFilterScreen())
+
+    def action_delete_filter(self) -> None:
+        table = self.query_one("#filter-table", DataTable)
+        if not self._filters:
+            return
+        row_index = table.cursor_row
+        if 0 <= row_index < len(self._filters):
+            f = self._filters[row_index]
+            self.app._node.filter_store.remove_filter(f["filter_type"], f["pattern"])
+            self.notify(f"Removed {f['filter_type']} filter: {f['pattern']}")
+            self._load_filters()
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+
 class NewsnetApp(App):
     """Newsnet TUI - P2P threaded discussions on Reticulum."""
 
@@ -140,6 +243,7 @@ class NewsnetApp(App):
         Binding("R", "reply", "Reply"),
         Binding("s", "do_sync", "Sync"),
         Binding("a", "do_announce", "Announce"),
+        Binding("f", "filters", "Filters"),
         Binding("r", "refresh", "Refresh"),
         Binding("q", "quit", "Quit"),
     ]
@@ -268,10 +372,20 @@ class NewsnetApp(App):
         if not subject.startswith("Re: "):
             subject = f"Re: {subject}"
 
+        ts = datetime.fromtimestamp(article["timestamp"]).strftime("%Y-%m-%d %H:%M")
+        quoted_lines = [f"> {line}" for line in article["body"].split("\n")]
+        quoted_text = (
+            "\n\n"
+            f"On {ts}, {article['display_name']} wrote:\n"
+            + "\n".join(quoted_lines)
+            + "\n"
+        )
+
         self.push_screen(ComposeScreen(
             reply_newsgroup=article["newsgroup"],
             reply_subject=subject,
             reply_references=refs,
+            quoted_text=quoted_text,
         ))
 
     def action_do_sync(self) -> None:
@@ -284,6 +398,9 @@ class NewsnetApp(App):
     def action_do_announce(self) -> None:
         self._node.announce()
         self.notify(f"Announced as {self._node.config.display_name}")
+
+    def action_filters(self) -> None:
+        self.push_screen(FilterScreen())
 
     def action_refresh(self) -> None:
         self._refresh_data()

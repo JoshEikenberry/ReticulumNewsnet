@@ -62,7 +62,9 @@ def build_parser() -> argparse.ArgumentParser:
     filter_sub.add_parser("list", help="List filters")
 
     filter_rm = filter_sub.add_parser("remove", help="Remove a filter")
-    filter_rm.add_argument("filter_id", type=int, help="Filter ID to remove")
+    filter_rm.add_argument("--author", default=None, help="Author pattern to remove")
+    filter_rm.add_argument("--group", default=None, help="Newsgroup pattern to remove")
+    filter_rm.add_argument("--word", default=None, help="Word pattern to remove")
 
     return parser
 
@@ -140,20 +142,29 @@ def cmd_filter(node, args):
         else:
             print("Specify --author, --group, or --word")
             return
-        fid = node.store.add_filter(ftype, mode, pattern)
-        print(f"Filter added (id={fid}): {mode} {ftype} '{pattern}'")
+        node.filter_store.add_filter(ftype, mode, pattern)
+        print(f"Filter added: {mode} {ftype} '{pattern}'")
 
     elif args.filter_command == "list":
-        filters = node.store.list_filters()
+        filters = node.filter_store.list_filters()
         if not filters:
             print("No filters configured.")
             return
         for f in filters:
-            print(f"  [{f['id']}] {f['filter_mode']:10s} {f['filter_type']:10s} {f['pattern']}")
+            print(f"  {f['filter_mode']:10s} {f['filter_type']:10s} {f['pattern']}")
 
     elif args.filter_command == "remove":
-        node.store.remove_filter(args.filter_id)
-        print(f"Filter {args.filter_id} removed.")
+        if args.author:
+            ftype, pattern = "author", args.author
+        elif args.group:
+            ftype, pattern = "newsgroup", args.group
+        elif args.word:
+            ftype, pattern = "word", args.word
+        else:
+            print("Specify --author, --group, or --word")
+            return
+        node.filter_store.remove_filter(ftype, pattern)
+        print(f"Filter removed: {ftype} '{pattern}'")
 
 
 def cmd_sync(node, args):

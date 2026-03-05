@@ -8,7 +8,7 @@ import RNS
 
 from newsnet.article import Article
 from newsnet.config import NewsnetConfig
-from newsnet.filters import FilterEngine
+from newsnet.filters import FilterEngine, TextFilterStore
 from newsnet.identity import IdentityManager
 from newsnet.store import Store
 from newsnet.sync import SyncEngine, SyncSession
@@ -32,6 +32,8 @@ class Node:
         self._reticulum = None
         self._identity_mgr = IdentityManager(str(config.identity_path))
         self._store = Store(str(config.db_path))
+        self._filter_store = TextFilterStore(config.config_dir)
+        self._filter_store.ensure_files()
         self._destination = None
         self._sync_engine = None
 
@@ -43,6 +45,10 @@ class Node:
     @property
     def store(self) -> Store:
         return self._store
+
+    @property
+    def filter_store(self) -> TextFilterStore:
+        return self._filter_store
 
     @property
     def sync_engine(self) -> SyncEngine:
@@ -67,6 +73,7 @@ class Node:
             identity=identity,
             retention_hours=self.config.retention_hours,
             sync_interval_minutes=self.config.sync_interval_minutes,
+            filter_store=self._filter_store,
         )
 
         handler = AnnounceHandler("newsnet.peer", self._on_announce)

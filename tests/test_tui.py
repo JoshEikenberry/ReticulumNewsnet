@@ -7,16 +7,20 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from newsnet.filters import TextFilterStore
 from newsnet.store import Store
-from tui.app import ComposeScreen, NewsnetApp
+from tui.app import ComposeScreen, FilterScreen, AddFilterScreen, NewsnetApp
 
 
 @pytest.fixture
 def mock_node(tmp_path):
-    """Create a mock Node with a real Store for testing."""
+    """Create a mock Node with a real Store and TextFilterStore for testing."""
     store = Store(tmp_path / "test.db")
+    filter_store = TextFilterStore(tmp_path / "filters")
+    filter_store.ensure_files()
     node = MagicMock()
     node.store = store
+    node.filter_store = filter_store
     node.config.display_name = "TestUser"
     return node
 
@@ -181,10 +185,13 @@ async def test_reply_opens_prefilled_compose(mock_node):
 
         ng_input = app.screen.query_one("#newsgroup-input")
         subj_input = app.screen.query_one("#subject-input")
+        body_input = app.screen.query_one("#body-input")
         assert ng_input.value == "test.general"
         assert subj_input.value == "Re: Hello world"
         assert ng_input.disabled is True
         assert app.screen._reply_references == ["root123"]
+        assert "> Original post" in body_input.text
+        assert "Alice wrote:" in body_input.text
 
 
 @pytest.mark.asyncio
@@ -244,3 +251,57 @@ async def test_reader_shows_references(mock_node):
         reader = app.query_one("#reader-content")
         assert "Refs:" in reader.content
         assert "root123" in reader.content
+
+
+@pytest.mark.asyncio
+async def test_filter_key_opens_filter_screen(mock_node):
+    """Pressing 'f' should open the filter screen."""
+    app = NewsnetApp(mock_node)
+    async with app.run_test() as pilot:
+        await pilot.press("f")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+
+@pytest.mark.asyncio
+async def test_filter_screen_displays_filters(mock_node):
+    """FilterScreen should display existing filters."""
+    mock_node.filter_store.add_filter("author", "blacklist", "spammer")
+    mock_node.filter_store.add_filter("word", "whitelist", "python")
+
+    app = NewsnetApp(mock_node)
+    async with app.run_test() as pilot:
+        await pilot.press("f")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+        table = app.screen.query_one("#filter-table")
+        assert table.row_count == 2
+
+
+@pytest.mark.asyncio
+async def test_filter_screen_escape(mock_node):
+    """Pressing escape on filter screen should return to main."""
+    app = NewsnetApp(mock_node)
+    async with app.run_test() as pilot:
+        await pilot.press("f")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, FilterScreen)
+
+
+@pytest.mark.asyncio
+async def test_filter_screen_add_opens_form(mock_node):
+    """Pressing 'a' on FilterScreen should open AddFilterScreen."""
+    app = NewsnetApp(mock_node)
+    async with app.run_test() as pilot:
+        await pilot.press("f")
+        await pilot.pause()
+        assert isinstance(app.screen, FilterScreen)
+
+        await pilot.press("a")
+        await pilot.pause()
+        assert isinstance(app.screen, AddFilterScreen)

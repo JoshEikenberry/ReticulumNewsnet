@@ -40,14 +40,6 @@ class Store:
                 last_synced      REAL
             );
 
-            CREATE TABLE IF NOT EXISTS filters (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                filter_type TEXT NOT NULL,
-                filter_mode TEXT NOT NULL,
-                pattern     TEXT NOT NULL,
-                created_at  REAL NOT NULL
-            );
-
             CREATE TABLE IF NOT EXISTS tombstones (
                 message_id TEXT PRIMARY KEY,
                 created_at REAL NOT NULL
@@ -162,25 +154,6 @@ class Store:
     def list_peers(self) -> list[dict]:
         rows = self._conn.execute(
             "SELECT * FROM peers ORDER BY last_seen DESC"
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def add_filter(self, filter_type: str, filter_mode: str, pattern: str) -> int:
-        cursor = self._conn.execute(
-            """INSERT INTO filters (filter_type, filter_mode, pattern, created_at)
-               VALUES (?, ?, ?, ?)""",
-            (filter_type, filter_mode, pattern, time.time()),
-        )
-        self._conn.commit()
-        return cursor.lastrowid
-
-    def remove_filter(self, filter_id: int):
-        self._conn.execute("DELETE FROM filters WHERE id = ?", (filter_id,))
-        self._conn.commit()
-
-    def list_filters(self) -> list[dict]:
-        rows = self._conn.execute(
-            "SELECT * FROM filters ORDER BY created_at"
         ).fetchall()
         return [dict(r) for r in rows]
 

@@ -119,12 +119,4 @@ def test_store_and_list_peers():
     os.unlink(path)
 
 
-def test_store_and_list_filters():
-    store, path = make_store()
-    fid = store.add_filter("author", "blacklist", "bad_author_hash")
-    filters = store.list_filters()
-    assert len(filters) == 1
-    assert filters[0]["pattern"] == "bad_author_hash"
-    store.remove_filter(fid)
-    assert len(store.list_filters()) == 0
-    os.unlink(path)
+# Filter methods moved to TextFilterStore — see tests/test_filters.py

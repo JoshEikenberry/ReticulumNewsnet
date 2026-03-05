@@ -9,7 +9,7 @@ import RNS.Channel
 import umsgpack
 
 from newsnet.article import Article
-from newsnet.filters import FilterEngine
+from newsnet.filters import FilterEngine, TextFilterStore
 from newsnet.store import Store
 
 log = logging.getLogger(__name__)
@@ -81,11 +81,13 @@ class SyncEngine:
         identity,
         retention_hours: int,
         sync_interval_minutes: int,
+        filter_store: TextFilterStore | None = None,
     ):
         self.store = store
         self.identity = identity
         self.retention_hours = retention_hours
         self.sync_interval_minutes = sync_interval_minutes
+        self.filter_store = filter_store
 
     @property
     def retention_seconds(self) -> float:
@@ -129,7 +131,7 @@ class SyncEngine:
             return False
 
         # Apply filters
-        filters = self.store.list_filters()
+        filters = self.filter_store.list_filters() if self.filter_store else []
         engine = FilterEngine(filters)
         article_dict = article.to_store_dict()
         if not engine.should_keep(article_dict):

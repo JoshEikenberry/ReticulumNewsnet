@@ -84,6 +84,6 @@ def test_parser_announce():
 
 def test_parser_filter_remove():
     parser = build_parser()
-    args = parser.parse_args(["filter", "remove", "5"])
+    args = parser.parse_args(["filter", "remove", "--author", "spammer123"])
     assert args.filter_command == "remove"
-    assert args.filter_id == 5
+    assert args.author == "spammer123"

@@ -52,3 +52,55 @@ ComposeScreen #compose-help {
     background: $surface;
     color: $text-muted;
 }
+
+FilterScreen {
+    layout: vertical;
+}
+
+FilterScreen #filter-title {
+    text-style: bold;
+    padding: 1 0;
+    color: $accent;
+}
+
+FilterScreen #filter-table {
+    height: 1fr;
+    border: solid $accent;
+}
+
+FilterScreen #filter-help {
+    dock: bottom;
+    padding: 1;
+    background: $surface;
+    color: $text-muted;
+}
+
+AddFilterScreen {
+    layout: vertical;
+}
+
+AddFilterScreen #filter-form-title {
+    text-style: bold;
+    padding: 1 0;
+    color: $accent;
+}
+
+AddFilterScreen Label {
+    padding: 0;
+    margin-top: 1;
+}
+
+AddFilterScreen Select {
+    margin-bottom: 0;
+}
+
+AddFilterScreen Input {
+    margin-bottom: 0;
+}
+
+AddFilterScreen #filter-form-help {
+    dock: bottom;
+    padding: 1;
+    background: $surface;
+    color: $text-muted;
+}
