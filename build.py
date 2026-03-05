@@ -6,7 +6,6 @@ frozen PyInstaller builds. This script patches the installed RNS source
 before building, then restores it afterward.
 """
 
-import importlib.util
 import shutil
 import subprocess
 import sys
@@ -36,28 +35,44 @@ RETICULUM_NEW = """\
     from RNS.Interfaces import WeaveInterface"""
 
 
-def _find_rns_file(module_path: str) -> Path | None:
-    """Locate an installed RNS source file."""
-    spec = importlib.util.find_spec(module_path)
-    if spec and spec.origin:
-        p = Path(spec.origin)
-        if p.exists():
+def _find_rns_dir() -> Path | None:
+    """Find the installed RNS package directory without importing it."""
+    result = subprocess.run(
+        [sys.executable, "-c", "import RNS, os; print(os.path.dirname(RNS.__file__))"],
+        capture_output=True, text=True,
+    )
+    if result.returncode == 0:
+        p = Path(result.stdout.strip())
+        if p.is_dir():
             return p
+
+    # Fallback: search site-packages
+    for path in sys.path:
+        candidate = Path(path) / "RNS"
+        if (candidate / "Reticulum.py").exists():
+            return candidate
     return None
 
 
 def _patch_file(path: Path, old: str, new: str) -> Path | None:
     """Replace `old` with `new` in a file, backing up the original."""
-    content = path.read_text()
+    content = path.read_text(encoding="utf-8")
     if old not in content:
         print(f"  WARNING: patch target not found in {path.name}, skipping")
         return None
     backup = path.with_suffix(path.suffix + ".bak")
     if not backup.exists():
         shutil.copy2(path, backup)
-    path.write_text(content.replace(old, new, 1))
+    path.write_text(content.replace(old, new, 1), encoding="utf-8")
     print(f"  Patched {path}")
     return backup
+
+
+def _clear_pycache(directory: Path):
+    """Remove __pycache__ dirs so Python doesn't use stale bytecode."""
+    for cache_dir in directory.rglob("__pycache__"):
+        shutil.rmtree(cache_dir)
+        print(f"  Cleared {cache_dir}")
 
 
 def _restore(backup: Path):
@@ -71,15 +86,34 @@ def _restore(backup: Path):
 def main():
     backups: list[Path] = []
 
+    rns_dir = _find_rns_dir()
+    if rns_dir is None:
+        print("ERROR: Could not find installed RNS package")
+        sys.exit(1)
+
+    print(f"Found RNS at: {rns_dir}")
+
     # Patch RNS/Reticulum.py
     print("Patching RNS for frozen build...")
-    ret_path = _find_rns_file("RNS.Reticulum")
-    if ret_path:
+    ret_path = rns_dir / "Reticulum.py"
+    if ret_path.exists():
         b = _patch_file(ret_path, RETICULUM_OLD, RETICULUM_NEW)
         if b:
             backups.append(b)
     else:
-        print("  WARNING: Could not find RNS/Reticulum.py")
+        print(f"  ERROR: {ret_path} not found")
+        sys.exit(1)
+
+    # Clear bytecode caches so PyInstaller sees the patched source
+    _clear_pycache(rns_dir)
+
+    # Verify the patch was applied
+    content = ret_path.read_text(encoding="utf-8")
+    if "from RNS.Interfaces import Interface" in content:
+        print("  Verified: patch is present in source file")
+    else:
+        print("  ERROR: patch verification failed!")
+        sys.exit(1)
 
     try:
         cmd = [
