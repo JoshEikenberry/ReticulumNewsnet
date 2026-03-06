@@ -7,7 +7,7 @@ import sys
 block_cipher = None
 
 a = Analysis(
-    ['cli/main.py'],
+    ['newsnet_main.py'],
     pathex=[],
     binaries=[],
     datas=[
