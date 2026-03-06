@@ -1,7 +1,37 @@
 from __future__ import annotations
 
-import argparse
 import sys
+
+# ---------------------------------------------------------------------------
+# Frozen-build fix: RNS.Interfaces.__init__ uses glob.glob() to discover .py
+# files on disk. In a PyInstaller bundle there are no .py files, so the glob
+# returns nothing and `from RNS.Interfaces import *` silently imports zero
+# names — crashing later with NameError.  Monkey-patching glob.glob *before*
+# any RNS code is imported makes the discovery work inside frozen builds.
+# ---------------------------------------------------------------------------
+if getattr(sys, "frozen", False):
+    import glob as _glob
+    import os as _os
+
+    _original_glob = _glob.glob
+    _INTERFACE_MODULES = [
+        "Interface", "LocalInterface", "AutoInterface", "BackboneInterface",
+        "TCPInterface", "UDPInterface", "I2PInterface", "SerialInterface",
+        "PipeInterface", "KISSInterface", "AX25KISSInterface",
+        "RNodeInterface", "RNodeMultiInterface", "WeaveInterface",
+    ]
+
+    def _patched_glob(pattern, *args, **kwargs):
+        if "Interfaces" in pattern and pattern.endswith("*.py"):
+            base = pattern[:-4]  # strip /*.py
+            return [_os.path.join(base, f"{m}.py") for m in _INTERFACE_MODULES]
+        if "Interfaces" in pattern and pattern.endswith("*.pyc"):
+            return []
+        return _original_glob(pattern, *args, **kwargs)
+
+    _glob.glob = _patched_glob
+
+import argparse
 import json
 from datetime import datetime
 
