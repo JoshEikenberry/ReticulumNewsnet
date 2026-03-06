@@ -90,7 +90,7 @@ a = Analysis(
     ],
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=['pyinstaller_hooks/rthook_rns.py'],
     excludes=[],
     noarchive=False,
     cipher=block_cipher,

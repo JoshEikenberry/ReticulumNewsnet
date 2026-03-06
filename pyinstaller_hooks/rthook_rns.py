@@ -1,48 +1,35 @@
-"""Runtime hook to fix RNS.Interfaces wildcard import in frozen builds.
+"""Runtime hook: fix RNS.Interfaces discovery in frozen PyInstaller builds.
 
-RNS.Interfaces.__init__ uses glob.glob() to discover .py files on disk
-and build __all__ dynamically. In a frozen PyInstaller bundle, there are
-no .py files, so __all__ ends up empty and `from RNS.Interfaces import *`
-imports nothing — causing NameError for Interface, LocalInterface, etc.
+RNS.Interfaces.__init__ uses glob.glob() to find .py files on disk and build
+__all__.  In a frozen bundle there are no .py files, so the glob returns nothing
+and `from RNS.Interfaces import *` imports zero names.
 
-This hook monkey-patches glob.glob to return the expected module names
-when called from RNS.Interfaces.__init__.
+This hook patches glob.glob BEFORE the main script runs, so the fix is in place
+before any RNS code is imported.
 """
 
-import glob
-import os
+import glob as _glob
+import os as _os
 import sys
 
-_original_glob = glob.glob
+_original_glob = _glob.glob
 
-# The interface module basenames that RNS expects to find
 _INTERFACE_MODULES = [
-    'Interface',
-    'LocalInterface',
-    'AutoInterface',
-    'BackboneInterface',
-    'TCPInterface',
-    'UDPInterface',
-    'I2PInterface',
-    'SerialInterface',
-    'PipeInterface',
-    'KISSInterface',
-    'AX25KISSInterface',
-    'RNodeInterface',
-    'RNodeMultiInterface',
-    'WeaveInterface',
+    "Interface", "LocalInterface", "AutoInterface", "BackboneInterface",
+    "TCPInterface", "UDPInterface", "I2PInterface", "SerialInterface",
+    "PipeInterface", "KISSInterface", "AX25KISSInterface",
+    "RNodeInterface", "RNodeMultiInterface", "WeaveInterface",
 ]
 
 
 def _patched_glob(pattern, *args, **kwargs):
-    # Detect when RNS.Interfaces.__init__ is globbing for *.py or *.pyc
-    if ('RNS' in pattern or 'Interfaces' in pattern) and (pattern.endswith('*.py') or pattern.endswith('*.pyc')):
-        if pattern.endswith('*.py'):
-            parent = pattern[:-4]  # strip /*.py
-            return [os.path.join(parent, f'{m}.py') for m in _INTERFACE_MODULES]
-        else:
-            return []  # no .pyc needed, .py list is sufficient
+    # Only intercept the top-level RNS/Interfaces/ glob, not subdirs
+    if pattern.endswith("*.py") and pattern.replace("\\", "/").endswith("Interfaces/*.py"):
+        base = pattern[:-4]
+        return [_os.path.join(base, f"{m}.py") for m in _INTERFACE_MODULES]
+    if pattern.endswith("*.pyc") and pattern.replace("\\", "/").endswith("Interfaces/*.pyc"):
+        return []
     return _original_glob(pattern, *args, **kwargs)
 
 
-glob.glob = _patched_glob
+_glob.glob = _patched_glob
