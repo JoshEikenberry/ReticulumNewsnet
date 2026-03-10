@@ -231,6 +231,92 @@ class FilterScreen(Screen):
         self.app.pop_screen()
 
 
+class AddPeerScreen(Screen):
+    """Screen for adding a new TCP peer."""
+
+    BINDINGS = [
+        Binding("escape", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=False)
+        yield Label("Add TCP Peer", id="peer-form-title")
+        yield Label("Address (host:port, port defaults to 4965):")
+        yield Input(placeholder="e.g. hub.example.com:4242", id="peer-address-input")
+        yield Static("[Enter] to add | [Escape] to cancel", id="peer-form-help")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        self.query_one("#peer-address-input", Input).focus()
+
+    def on_input_submitted(self, event: Input.Submitted) -> None:
+        address = event.value.strip()
+        if not address:
+            self.notify("Address is required", severity="error")
+            return
+        try:
+            result = self.app._node.add_tcp_peer(address)
+            self.notify(f"Added peer: {result}")
+            self.app.pop_screen()
+        except ValueError as e:
+            self.notify(f"Invalid address: {e}", severity="error")
+
+    def action_cancel(self) -> None:
+        self.app.pop_screen()
+
+
+class PeerScreen(Screen):
+    """Screen for viewing and managing TCP peers."""
+
+    BINDINGS = [
+        Binding("a", "add_peer", "Add"),
+        Binding("d", "delete_peer", "Delete"),
+        Binding("delete", "delete_peer", "Delete"),
+        Binding("escape", "go_back", "Back"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        yield Header(show_clock=False)
+        yield Label("TCP Peers", id="peer-title")
+        yield DataTable(id="peer-table")
+        yield Static("[a] Add | [d/Delete] Remove | [Escape] Back", id="peer-help")
+        yield Footer()
+
+    def on_mount(self) -> None:
+        table = self.query_one("#peer-table", DataTable)
+        table.add_columns("Address", "Status")
+        table.cursor_type = "row"
+        self._load_peers()
+
+    def _load_peers(self) -> None:
+        table = self.query_one("#peer-table", DataTable)
+        table.clear()
+        self._peers = self.app._node.list_tcp_peers()
+        for p in self._peers:
+            status = "Connected" if p["connected"] else "Disconnected"
+            table.add_row(p["address"], status)
+
+    def on_screen_resume(self) -> None:
+        self._load_peers()
+
+    def action_add_peer(self) -> None:
+        self.app.push_screen(AddPeerScreen())
+
+    def action_delete_peer(self) -> None:
+        table = self.query_one("#peer-table", DataTable)
+        if not self._peers:
+            return
+        row_index = table.cursor_row
+        if 0 <= row_index < len(self._peers):
+            p = self._peers[row_index]
+            self.app._node.remove_tcp_peer(p["address"])
+            self.notify(f"Removed peer: {p['address']}")
+            self._load_peers()
+
+    def action_go_back(self) -> None:
+        self.app.pop_screen()
+
+
 class NewsnetApp(App):
     """Newsnet TUI - P2P threaded discussions on Reticulum."""
 
@@ -244,6 +330,7 @@ class NewsnetApp(App):
         Binding("s", "do_sync", "Sync"),
         Binding("a", "do_announce", "Announce"),
         Binding("f", "filters", "Filters"),
+        Binding("t", "tcp_peers", "TCP Peers"),
         Binding("r", "refresh", "Refresh"),
         Binding("q", "quit", "Quit"),
     ]
@@ -401,6 +488,9 @@ class NewsnetApp(App):
 
     def action_filters(self) -> None:
         self.push_screen(FilterScreen())
+
+    def action_tcp_peers(self) -> None:
+        self.push_screen(PeerScreen())
 
     def action_refresh(self) -> None:
         self._refresh_data()
