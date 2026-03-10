@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import sys
 
-_BUILD_VERSION = "0.1.11"
+_BUILD_VERSION = "0.1.13"
 
 # ---------------------------------------------------------------------------
 # Frozen-build fix: RNS.Interfaces.__init__ uses glob.glob() to discover .py
