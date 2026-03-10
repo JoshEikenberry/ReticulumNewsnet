@@ -119,3 +119,35 @@ def test_disconnect_all(MockTCP, tmp_path):
     pm.disconnect_all()
     mock_iface.detach.assert_called_once()
     assert len(pm.connections()) == 0
+
+
+def test_fail_count_starts_at_zero(tmp_path):
+    pm = PeerManager(tmp_path)
+    assert pm.fail_count("hub.example.com:4242") == 0
+
+
+@patch("newsnet.peers.TCPClientInterface", create=True)
+def test_successful_connect_resets_fail_count(MockTCP, tmp_path):
+    pm = PeerManager(tmp_path)
+    pm._fail_counts["hub.example.com:4242"] = 3
+    pm.connect("hub.example.com:4242")
+    assert pm.fail_count("hub.example.com:4242") == 0
+
+
+@patch("newsnet.peers.TCPClientInterface", create=True)
+def test_failed_connect_increments_fail_count(MockTCP, tmp_path):
+    MockTCP.side_effect = Exception("refused")
+    pm = PeerManager(tmp_path)
+    pm.connect("hub.example.com:4242")
+    assert pm.fail_count("hub.example.com:4242") == 1
+    pm.connect("hub.example.com:4242")
+    assert pm.fail_count("hub.example.com:4242") == 2
+
+
+@patch("newsnet.peers.TCPClientInterface", create=True)
+def test_remove_clears_fail_count(MockTCP, tmp_path):
+    pm = PeerManager(tmp_path)
+    pm.add("hub.example.com:4242")
+    pm._fail_counts["hub.example.com:4242"] = 5
+    pm.remove("hub.example.com:4242")
+    assert pm.fail_count("hub.example.com:4242") == 0

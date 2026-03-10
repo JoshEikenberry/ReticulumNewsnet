@@ -17,6 +17,7 @@ class PeerManager:
     def __init__(self, config_dir: Path):
         self._path = Path(config_dir) / _FILENAME
         self._interfaces: dict[str, object] = {}  # normalized_addr -> TCPClientInterface
+        self._fail_counts: dict[str, int] = {}
 
     @staticmethod
     def parse_address(address: str) -> tuple[str, int]:
@@ -102,6 +103,7 @@ class PeerManager:
             if line.strip() != normalized
         ]
         self._path.write_text("\n".join(new_lines) + "\n" if new_lines else "")
+        self._fail_counts.pop(normalized, None)
 
     def connect(self, address: str) -> None:
         """Create a TCPClientInterface for the given address."""
@@ -127,8 +129,10 @@ class PeerManager:
             iface.OUT = True
             self._interfaces[normalized] = iface
             log.info(f"Connected to TCP peer {normalized}")
+            self._fail_counts.pop(normalized, None)
         except Exception:
             log.warning(f"Failed to connect to TCP peer {normalized}", exc_info=True)
+            self._fail_counts[normalized] = self._fail_counts.get(normalized, 0) + 1
 
     def disconnect(self, address: str) -> None:
         """Tear down connection to a peer."""
@@ -146,6 +150,14 @@ class PeerManager:
     def connections(self) -> dict[str, object]:
         """Return dict of normalized_addr -> interface for active connections."""
         return dict(self._interfaces)
+
+    def fail_count(self, address: str) -> int:
+        """Return consecutive failure count for an address."""
+        try:
+            normalized = self.normalize(address)
+        except ValueError:
+            return 0
+        return self._fail_counts.get(normalized, 0)
 
     def connect_all(self) -> None:
         """Connect to all peers in peers.txt."""
