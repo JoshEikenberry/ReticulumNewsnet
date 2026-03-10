@@ -217,6 +217,7 @@ class Node:
             result.append({
                 "address": addr,
                 "connected": addr in connections,
+                "fail_count": self._peer_mgr.fail_count(addr),
             })
         return result
 
@@ -229,6 +230,7 @@ class Node:
     def _periodic_sync_loop(self):
         while self._running:
             try:
+                self._peer_mgr.retry_disconnected()
                 self.sync_all_peers()
             except Exception:
                 log.exception("Error in periodic sync")

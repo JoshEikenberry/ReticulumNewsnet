@@ -198,3 +198,26 @@ def test_node_add_peer(MockStore, MockIdMgr, MockRNS, MockPM):
     assert result == "hub.example.com:4242"
     MockPM.return_value.add.assert_called_once_with("hub.example.com:4242")
     MockPM.return_value.connect.assert_called_once_with("hub.example.com:4242")
+
+
+@patch("newsnet.node.PeerManager")
+@patch("newsnet.node.RNS")
+@patch("newsnet.node.IdentityManager")
+@patch("newsnet.node.Store")
+def test_list_tcp_peers_includes_fail_count(MockStore, MockIdMgr, MockRNS, MockPM):
+    mock_identity = MagicMock()
+    mock_identity.hash = b"\x01" * 16
+    MockIdMgr.return_value.get_or_create.return_value = mock_identity
+    MockRNS.Destination.return_value = MagicMock()
+    MockPM.return_value.list_peers.return_value = ["hub.example.com:4242"]
+    MockPM.return_value.connections.return_value = {}
+    MockPM.return_value.fail_count.return_value = 3
+
+    config = NewsnetConfig(display_name="TestNode")
+    node = Node(config)
+    node.start()
+    peers = node.list_tcp_peers()
+
+    assert len(peers) == 1
+    assert peers[0]["fail_count"] == 3
+    assert peers[0]["connected"] is False
