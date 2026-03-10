@@ -151,3 +151,24 @@ def test_remove_clears_fail_count(MockTCP, tmp_path):
     pm._fail_counts["hub.example.com:4242"] = 5
     pm.remove("hub.example.com:4242")
     assert pm.fail_count("hub.example.com:4242") == 0
+
+
+@patch("newsnet.peers.TCPClientInterface", create=True)
+def test_retry_disconnected_reconnects(MockTCP, tmp_path):
+    peers_file = tmp_path / "peers.txt"
+    peers_file.write_text("hub1.com:4242\nhub2.com:4242\n")
+    pm = PeerManager(tmp_path)
+    # Only hub1 is connected
+    pm._interfaces["hub1.com:4242"] = MagicMock()
+    pm.retry_disconnected()
+    # Should only try to connect hub2
+    MockTCP.assert_called_once()
+    call_args = MockTCP.call_args
+    assert call_args[0][2] == "hub2.com"  # host argument
+
+
+@patch("newsnet.peers.TCPClientInterface", create=True)
+def test_retry_disconnected_no_peers(MockTCP, tmp_path):
+    pm = PeerManager(tmp_path)
+    pm.retry_disconnected()  # should not raise
+    MockTCP.assert_not_called()

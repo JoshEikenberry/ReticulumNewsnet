@@ -168,3 +168,10 @@ class PeerManager:
         """Tear down all connections."""
         for addr in list(self._interfaces.keys()):
             self.disconnect(addr)
+
+    def retry_disconnected(self) -> None:
+        """Attempt to reconnect any peers not currently connected."""
+        for addr in self.list_peers():
+            normalized = self.normalize(addr)
+            if normalized not in self._interfaces:
+                self.connect(addr)
