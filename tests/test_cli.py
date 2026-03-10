@@ -87,3 +87,26 @@ def test_parser_filter_remove():
     args = parser.parse_args(["filter", "remove", "--author", "spammer123"])
     assert args.filter_command == "remove"
     assert args.author == "spammer123"
+
+
+def test_parser_peer_add():
+    parser = build_parser()
+    args = parser.parse_args(["peer", "add", "hub.example.com:4242"])
+    assert args.command == "peer"
+    assert args.peer_command == "add"
+    assert args.address == "hub.example.com:4242"
+
+
+def test_parser_peer_remove():
+    parser = build_parser()
+    args = parser.parse_args(["peer", "remove", "hub.example.com:4242"])
+    assert args.command == "peer"
+    assert args.peer_command == "remove"
+    assert args.address == "hub.example.com:4242"
+
+
+def test_parser_peer_list():
+    parser = build_parser()
+    args = parser.parse_args(["peer", "list"])
+    assert args.command == "peer"
+    assert args.peer_command == "list"

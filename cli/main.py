@@ -66,6 +66,18 @@ def build_parser() -> argparse.ArgumentParser:
     filter_rm.add_argument("--group", default=None, help="Newsgroup pattern to remove")
     filter_rm.add_argument("--word", default=None, help="Word pattern to remove")
 
+    # peer
+    peer_p = sub.add_parser("peer", help="Manage TCP peers")
+    peer_sub = peer_p.add_subparsers(dest="peer_command")
+
+    peer_add = peer_sub.add_parser("add", help="Add a TCP peer")
+    peer_add.add_argument("address", help="host:port (port defaults to 4965)")
+
+    peer_rm = peer_sub.add_parser("remove", help="Remove a TCP peer")
+    peer_rm.add_argument("address", help="host:port to remove")
+
+    peer_sub.add_parser("list", help="List TCP peers")
+
     return parser
 
 
@@ -167,6 +179,26 @@ def cmd_filter(node, args):
         print(f"Filter removed: {ftype} '{pattern}'")
 
 
+def cmd_peer(node, args):
+    if args.peer_command == "add":
+        try:
+            result = node.add_tcp_peer(args.address)
+            print(f"Added peer: {result}")
+        except ValueError as e:
+            print(f"Invalid address: {e}")
+    elif args.peer_command == "remove":
+        node.remove_tcp_peer(args.address)
+        print(f"Removed peer: {args.address}")
+    elif args.peer_command == "list":
+        peers = node.list_tcp_peers()
+        if not peers:
+            print("No TCP peers configured.")
+            return
+        for p in peers:
+            status = "connected" if p["connected"] else "disconnected"
+            print(f"  {p['address']:30s}  {status}")
+
+
 def cmd_sync(node, args):
     node.announce()
     count = node.sync_all_peers()
@@ -198,6 +230,7 @@ COMMANDS = {
     "peers": cmd_peers,
     "identity": cmd_identity,
     "filter": cmd_filter,
+    "peer": cmd_peer,
     "sync": lambda node, args: cmd_sync(node, args),
     "announce": lambda node, args: cmd_announce(node, args),
     "tui": lambda node, args: cmd_tui(node, args),
