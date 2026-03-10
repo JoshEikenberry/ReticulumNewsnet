@@ -23,6 +23,7 @@ a = Analysis(
         'newsnet.article',
         'newsnet.identity',
         'newsnet.sync',
+        'newsnet.peers',
         'cli',
         'tui',
         'tui.app',
