@@ -284,7 +284,7 @@ class PeerScreen(Screen):
 
     def on_mount(self) -> None:
         table = self.query_one("#peer-table", DataTable)
-        table.add_columns("Address", "Status")
+        table.add_columns("Address", "Status", "Failures")
         table.cursor_type = "row"
         self._load_peers()
 
@@ -294,7 +294,13 @@ class PeerScreen(Screen):
         self._peers = self.app._node.list_tcp_peers()
         for p in self._peers:
             status = "Connected" if p["connected"] else "Disconnected"
-            table.add_row(p["address"], status)
+            failures = str(p["fail_count"]) if p["fail_count"] > 0 else ""
+            table.add_row(p["address"], status, failures)
+            if p["fail_count"] == 5:
+                self.notify(
+                    f"Peer {p['address']} has failed 5 consecutive times",
+                    severity="warning",
+                )
 
     def on_screen_resume(self) -> None:
         self._load_peers()

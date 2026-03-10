@@ -195,7 +195,12 @@ def cmd_peer(node, args):
             print("No TCP peers configured.")
             return
         for p in peers:
-            status = "connected" if p["connected"] else "disconnected"
+            if p["connected"]:
+                status = "connected"
+            elif p["fail_count"] > 0:
+                status = f"disconnected (failures: {p['fail_count']})"
+            else:
+                status = "disconnected"
             print(f"  {p['address']:30s}  {status}")
 
 
