@@ -142,3 +142,59 @@ def test_shutdown_stops_sync_loop(MockStore, MockIdMgr, MockRNS):
 
     assert node._running is False
     MockStore.return_value.close.assert_called_once()
+
+
+@patch("newsnet.node.PeerManager")
+@patch("newsnet.node.RNS")
+@patch("newsnet.node.IdentityManager")
+@patch("newsnet.node.Store")
+def test_node_start_connects_peers(MockStore, MockIdMgr, MockRNS, MockPM):
+    mock_identity = MagicMock()
+    mock_identity.hash = b"\x01" * 16
+    MockIdMgr.return_value.get_or_create.return_value = mock_identity
+    MockRNS.Destination.return_value = MagicMock()
+
+    config = NewsnetConfig(display_name="TestNode")
+    node = Node(config)
+    node.start()
+
+    MockPM.return_value.connect_all.assert_called_once()
+
+
+@patch("newsnet.node.PeerManager")
+@patch("newsnet.node.RNS")
+@patch("newsnet.node.IdentityManager")
+@patch("newsnet.node.Store")
+def test_node_shutdown_disconnects_peers(MockStore, MockIdMgr, MockRNS, MockPM):
+    mock_identity = MagicMock()
+    mock_identity.hash = b"\x01" * 16
+    MockIdMgr.return_value.get_or_create.return_value = mock_identity
+    MockRNS.Destination.return_value = MagicMock()
+
+    config = NewsnetConfig(display_name="TestNode")
+    node = Node(config)
+    node.start()
+    node.shutdown()
+
+    MockPM.return_value.disconnect_all.assert_called_once()
+
+
+@patch("newsnet.node.PeerManager")
+@patch("newsnet.node.RNS")
+@patch("newsnet.node.IdentityManager")
+@patch("newsnet.node.Store")
+def test_node_add_peer(MockStore, MockIdMgr, MockRNS, MockPM):
+    mock_identity = MagicMock()
+    mock_identity.hash = b"\x01" * 16
+    MockIdMgr.return_value.get_or_create.return_value = mock_identity
+    MockRNS.Destination.return_value = MagicMock()
+    MockPM.return_value.add.return_value = "hub.example.com:4242"
+
+    config = NewsnetConfig(display_name="TestNode")
+    node = Node(config)
+    node.start()
+    result = node.add_tcp_peer("hub.example.com:4242")
+
+    assert result == "hub.example.com:4242"
+    MockPM.return_value.add.assert_called_once_with("hub.example.com:4242")
+    MockPM.return_value.connect.assert_called_once_with("hub.example.com:4242")

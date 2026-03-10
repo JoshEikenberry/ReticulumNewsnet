@@ -10,6 +10,7 @@ from newsnet.article import Article
 from newsnet.config import NewsnetConfig
 from newsnet.filters import FilterEngine, TextFilterStore
 from newsnet.identity import IdentityManager
+from newsnet.peers import PeerManager
 from newsnet.store import Store
 from newsnet.sync import SyncEngine, SyncSession
 
@@ -41,6 +42,7 @@ class Node:
         self._sessions: dict = {}  # link -> SyncSession
         self._running = False
         self._sync_thread = None
+        self._peer_mgr = PeerManager(config.config_dir)
 
     @property
     def store(self) -> Store:
@@ -49,6 +51,10 @@ class Node:
     @property
     def filter_store(self) -> TextFilterStore:
         return self._filter_store
+
+    @property
+    def peer_manager(self) -> PeerManager:
+        return self._peer_mgr
 
     @property
     def sync_engine(self) -> SyncEngine:
@@ -78,6 +84,8 @@ class Node:
 
         handler = AnnounceHandler("newsnet.peer", self._on_announce)
         RNS.Transport.register_announce_handler(handler)
+
+        self._peer_mgr.connect_all()
 
     def announce(self):
         app_data = self.config.display_name.encode("utf-8")
@@ -190,6 +198,28 @@ class Node:
                 synced += 1
         return synced
 
+    def add_tcp_peer(self, address: str) -> str:
+        """Add a TCP peer, save to file, and connect immediately."""
+        normalized = self._peer_mgr.add(address)
+        self._peer_mgr.connect(address)
+        return normalized
+
+    def remove_tcp_peer(self, address: str) -> None:
+        """Disconnect and remove a TCP peer."""
+        self._peer_mgr.disconnect(address)
+        self._peer_mgr.remove(address)
+
+    def list_tcp_peers(self) -> list[dict]:
+        """List TCP peers with connection status."""
+        connections = self._peer_mgr.connections()
+        result = []
+        for addr in self._peer_mgr.list_peers():
+            result.append({
+                "address": addr,
+                "connected": addr in connections,
+            })
+        return result
+
     def start_sync_loop(self):
         """Start periodic sync in a daemon thread."""
         self._running = True
@@ -217,4 +247,5 @@ class Node:
         self._running = False
         if self._sync_thread is not None:
             self._sync_thread.join(timeout=5)
+        self._peer_mgr.disconnect_all()
         self._store.close()
