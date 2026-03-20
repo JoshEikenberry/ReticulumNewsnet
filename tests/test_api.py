@@ -172,6 +172,56 @@ def test_post_article():
     assert r.json()["message_id"] == "new-id-xyz"
 
 
+def test_list_peers():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.store.list_peers.return_value = [
+        {"destination_hash": "abc", "display_name": "bob", "first_seen": 1.0, "last_seen": 2.0, "last_synced": 2.0}
+    ]
+    node.list_tcp_peers.return_value = [{"address": "1.2.3.4:4965", "connected": True, "fail_count": 0}]
+    client = _make_client(node)
+    r = client.get("/api/peers", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert "rns_peers" in data
+    assert "tcp_peers" in data
+
+
+def test_add_tcp_peer():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.add_tcp_peer.return_value = "1.2.3.4:4965"
+    client = _make_client(node)
+    r = client.post(
+        "/api/peers",
+        json={"address": "1.2.3.4:4965"},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 201
+
+
+def test_trigger_sync():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.sync_all_peers.return_value = 2
+    client = _make_client(node)
+    r = client.post("/api/sync", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.json()["synced_peers"] == 2
+
+
+def test_list_filters():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.filter_store.list_filters.return_value = [
+        {"type": "word", "mode": "blacklist", "pattern": "spam"}
+    ]
+    client = _make_client(node)
+    r = client.get("/api/filters", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+
+
 def test_starting_state_returns_503():
     """503 guard fires when startup_state="starting" and lifespan is disabled
     (so it can't flip to "ready" before the request is processed)."""
