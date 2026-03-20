@@ -13,6 +13,8 @@ dependencies = [
     "rns>=0.7.0",
     "umsgpack>=0.1.0",
     "textual>=0.50.0",
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
 ]
 
 [project.optional-dependencies]
@@ -20,10 +22,11 @@ dev = [
     "pytest>=7.0",
     "pytest-asyncio>=0.21.0",
     "pyinstaller>=6.0",
+    "httpx>=0.27.0",
 ]
 
 [tool.setuptools.packages.find]
-include = ["newsnet*", "cli*", "tui*"]
+include = ["newsnet*", "cli*", "tui*", "api*"]
 
 [tool.setuptools.package-data]
 tui = ["*.tcss"]
