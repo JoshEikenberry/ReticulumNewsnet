@@ -43,3 +43,32 @@ def test_config_dir():
     assert config.config_dir == Path.home() / ".config" / "reticulum-newsnet"
     assert config.db_path == config.config_dir / "newsnet.db"
     assert config.identity_path == config.config_dir / "identity"
+
+
+def test_config_has_api_fields():
+    cfg = NewsnetConfig()
+    assert cfg.api_token == ""
+    assert cfg.api_host == "127.0.0.1"
+    assert cfg.api_port == 8765
+
+def test_config_save_roundtrip(tmp_path):
+    cfg = NewsnetConfig(
+        display_name="alice",
+        api_token="test-token-123",
+        api_host="0.0.0.0",
+        api_port=9000,
+        config_dir_override=str(tmp_path),
+    )
+    cfg.ensure_dirs()
+    cfg.save()
+    loaded = NewsnetConfig.from_file(cfg.config_file_path)
+    assert loaded.display_name == "alice"
+    assert loaded.api_token == "test-token-123"
+    assert loaded.api_host == "0.0.0.0"
+    assert loaded.api_port == 9000
+
+def test_config_from_file_ignores_unknown_keys(tmp_path):
+    p = tmp_path / "config.toml"
+    p.write_text('display_name = "bob"\nunknown_key = "ignored"\n')
+    cfg = NewsnetConfig.from_file(p)
+    assert cfg.display_name == "bob"
