@@ -16,10 +16,14 @@ TOKEN = "test-token-xyz"
 def _make_client(node_mock=None) -> TestClient:
     """Create a test client with the app in READY state and lifespan disabled.
     This is the standard helper for all tests that need a working API."""
-    config = NewsnetConfig(api_token=TOKEN, display_name="testuser")
     hub = WebSocketHub()
     node = node_mock or MagicMock()
-    node.config = config
+    # Use the node's config if it has one with the right token, else create one
+    if node_mock is not None and hasattr(node_mock, 'config') and node_mock.config is not None:
+        config = node_mock.config
+    else:
+        config = NewsnetConfig(api_token=TOKEN, display_name="testuser")
+        node.config = config
     app = create_app(
         config=config, node=node, hub=hub,
         startup_state="ready", _lifespan_enabled=False,
@@ -40,6 +44,67 @@ def test_authenticated_request_passes():
     client = _make_client(node)
     r = client.get("/api/groups", headers={"Authorization": f"Bearer {TOKEN}"})
     assert r.status_code == 200
+
+
+def test_get_identity():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN, display_name="alice")
+    node._identity_mgr = MagicMock()
+    node._identity_mgr.identity = MagicMock()
+    node._identity_mgr.identity.hash = b"\xa3\xf9\xd2\xc1" + b"\x00" * 12
+    client = _make_client(node)
+    r = client.get("/api/identity", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert data["display_name"] == "alice"
+    assert "identity_hash" in data
+
+
+def test_get_config():
+    client = _make_client()
+    r = client.get("/api/config", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    data = r.json()
+    assert "display_name" in data
+    assert "retention_hours" in data
+
+
+def test_patch_config_immediate_field():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN, display_name="old")
+    node.config.config_dir_override = "/tmp/test-newsnet-cfg"
+    client = _make_client(node)
+    r = client.patch(
+        "/api/config",
+        json={"display_name": "new"},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 200
+    assert r.json().get("restart_required") is False
+
+
+def test_patch_config_invalid_retention():
+    client = _make_client()
+    r = client.patch(
+        "/api/config",
+        json={"retention_hours": 9999},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 422
+
+
+def test_patch_config_restart_required_field():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.config.config_dir_override = "/tmp/test-newsnet-cfg2"
+    client = _make_client(node)
+    r = client.patch(
+        "/api/config",
+        json={"api_port": 9999},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 200
+    assert r.json()["restart_required"] is True
 
 
 def test_starting_state_returns_503():
