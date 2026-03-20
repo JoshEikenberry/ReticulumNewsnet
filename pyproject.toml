@@ -1,4 +1,6 @@
 [build-system]
+# Before building the Python binary, run: cd frontend && npm ci && npm run build
+# This generates frontend/dist/ which is bundled by PyInstaller.
 requires = ["setuptools>=68.0"]
 build-backend = "setuptools.build_meta"
 
