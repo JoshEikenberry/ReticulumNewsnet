@@ -107,6 +107,71 @@ def test_patch_config_restart_required_field():
     assert r.json()["restart_required"] is True
 
 
+def test_list_groups():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.store.list_newsgroups.return_value = ["tech.linux", "net.mesh"]
+    client = _make_client(node)
+    r = client.get("/api/groups", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.json() == ["tech.linux", "net.mesh"]
+
+
+def test_list_articles_by_group():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.store.list_articles.return_value = [
+        {"message_id": "abc", "newsgroup": "tech.linux", "subject": "Hello",
+         "body": "World", "author_hash": "x", "display_name": "alice",
+         "timestamp": 1.0, "references": "[]", "received_at": 1.0}
+    ]
+    client = _make_client(node)
+    r = client.get("/api/articles?group=tech.linux", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert r.json()[0]["message_id"] == "abc"
+
+
+def test_get_single_article():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.store.get_article.return_value = {
+        "message_id": "abc123", "newsgroup": "tech.linux", "subject": "Hi",
+        "body": "Body", "author_hash": "x", "display_name": "bob",
+        "timestamp": 1.0, "references": "[]", "received_at": 1.0
+    }
+    node.store.list_articles.return_value = []
+    client = _make_client(node)
+    r = client.get("/api/articles/abc123", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 200
+    assert r.json()["message_id"] == "abc123"
+
+
+def test_get_article_not_found():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    node.store.get_article.return_value = None
+    client = _make_client(node)
+    r = client.get("/api/articles/nonexistent", headers={"Authorization": f"Bearer {TOKEN}"})
+    assert r.status_code == 404
+
+
+def test_post_article():
+    node = MagicMock()
+    node.config = NewsnetConfig(api_token=TOKEN)
+    mock_article = MagicMock()
+    mock_article.message_id = "new-id-xyz"
+    node.post.return_value = mock_article
+    client = _make_client(node)
+    r = client.post(
+        "/api/articles",
+        json={"newsgroup": "tech.linux", "subject": "Test", "body": "Hello", "references": []},
+        headers={"Authorization": f"Bearer {TOKEN}"},
+    )
+    assert r.status_code == 201
+    assert r.json()["message_id"] == "new-id-xyz"
+
+
 def test_starting_state_returns_503():
     """503 guard fires when startup_state="starting" and lifespan is disabled
     (so it can't flip to "ready" before the request is processed)."""
