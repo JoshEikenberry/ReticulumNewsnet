@@ -39,41 +39,25 @@
 ## Task 1: Scaffold Svelte Project
 
 **Files:**
-- Create: `frontend/` (full project skeleton)
+- `frontend/` (already scaffolded — skip to Step 4)
 
-- [ ] **Step 1: Verify Node.js is available**
+- [ ] **Step 1: Verify scaffold is present**
 
 ```bash
-node --version && npm --version
+ls /c/vibecode/reticulumnewsnet/frontend/src/
 ```
 
-Expected: Node 18+ and npm 9+. If not installed, download from nodejs.org.
+Expected output includes: `App.svelte`, `app.css`, `lib/`, `main.ts`
 
-- [ ] **Step 2: Scaffold Svelte + TypeScript + Vite project**
-
-**Note:** `npm create svelte@latest` is interactive — it will prompt even if flags are passed. Run this step manually in a terminal (not headlessly). Answer: Skeleton project → Yes (TypeScript) → No to all extras (prettier, eslint, playwright, vitest).
-
+If `frontend/` is missing, run:
 ```bash
 cd /c/vibecode/reticulumnewsnet
-npm create svelte@latest frontend
+npm create vite@latest frontend -- --template svelte-ts
+cd frontend && npm install
+npm install -D vite-plugin-pwa workbox-window --legacy-peer-deps
 ```
 
-When prompted, choose:
-- Template: **Skeleton project**
-- Type checking: **Yes, using TypeScript**
-- All other options: **No**
-
-After scaffolding completes, verify `frontend/package.json` exists before continuing.
-
-- [ ] **Step 3: Install dependencies**
-
-```bash
-cd /c/vibecode/reticulumnewsnet/frontend
-npm install
-npm install -D vite-plugin-pwa workbox-window
-```
-
-- [ ] **Step 4: Verify dev server starts**
+- [ ] **Step 2: Verify dev server starts**
 
 ```bash
 cd /c/vibecode/reticulumnewsnet/frontend && npm run dev
@@ -81,21 +65,16 @@ cd /c/vibecode/reticulumnewsnet/frontend && npm run dev
 
 Expected: Dev server at http://localhost:5173. Ctrl+C to stop.
 
-- [ ] **Step 5: Add `.gitignore` entry for frontend build output**
+- [ ] **Step 3: Verify `.gitignore` has frontend entries**
 
-Add to root `.gitignore` (create if missing):
+```bash
+grep "frontend/node_modules" /c/vibecode/reticulumnewsnet/.gitignore
+```
+
+Expected: line found. If missing, add to `.gitignore`:
 ```
 frontend/node_modules/
 frontend/dist/
-frontend/.svelte-kit/
-```
-
-- [ ] **Step 6: Commit scaffold**
-
-```bash
-cd /c/vibecode/reticulumnewsnet
-/c/vibecode/rtk.exe git add frontend/ .gitignore
-/c/vibecode/rtk.exe git commit -m "chore: scaffold Svelte + TypeScript frontend project"
 ```
 
 ---
