@@ -117,10 +117,22 @@ class SyncEngine:
         elapsed = time.time() - peer["last_synced"]
         return elapsed >= self.sync_interval_seconds
 
-    def process_received_article(self, article_data: bytes) -> bool:
+    def process_received_article(
+        self,
+        article_data: bytes,
+        requested_ids: set[str] | None = None,
+    ) -> bool:
         try:
             article = Article.deserialize(article_data)
         except Exception:
+            return False
+
+        # Pull guarantee: reject articles that were not requested in this session
+        if requested_ids is not None and article.message_id not in requested_ids:
+            log.warning(
+                f"Rejecting unrequested article {article.message_id[:16]} — "
+                "pull model violation"
+            )
             return False
 
         # Verify signature
@@ -157,6 +169,7 @@ class SyncSession:
         self._local_complete = False
         self._remote_complete = False
         self._pending_resources = 0
+        self._requested_ids: set[str] = set()
 
         channel = link.get_channel()
         channel.register_message_type(ArticleIDListMessage)
@@ -213,6 +226,8 @@ class SyncSession:
             channel = self.link.get_channel()
             req = ArticleRequestMessage(missing)
             channel.send(req)
+            with self._lock:
+                self._requested_ids.update(missing)
         else:
             self._mark_local_complete()
 
@@ -241,14 +256,18 @@ class SyncSession:
                 self._mark_local_complete_unlocked()
 
     def _on_article_data(self, message: ArticleDataMessage):
-        """Handle small articles sent via channel (fallback)."""
+        """Handle small articles sent via channel. Only process if we requested them."""
+        with self._lock:
+            rids = set(self._requested_ids)
         for article_data in message.articles:
-            self.sync_engine.process_received_article(article_data)
+            self.sync_engine.process_received_article(article_data, requested_ids=rids)
 
     def _resource_concluded(self, resource):
         if resource.status == RNS.Resource.COMPLETE:
             data = resource.data.read()
-            self.sync_engine.process_received_article(data)
+            with self._lock:
+                rids = set(self._requested_ids)
+            self.sync_engine.process_received_article(data, requested_ids=rids)
 
     def _on_sync_complete(self):
         with self._lock:
