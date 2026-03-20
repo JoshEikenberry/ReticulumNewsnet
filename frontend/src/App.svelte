@@ -1,89 +1,118 @@
-<script>
-  import svelteLogo from './assets/svelte.svg'
-  import viteLogo from './assets/vite.svg'
-  import heroImg from './assets/hero.png'
-  import Counter from './lib/Counter.svelte'
+<script lang="ts">
+  import { onMount } from 'svelte';
+  import { token, nodeReady, groups, identity, syncStatus, lastSyncCount, rnsPeers, tcpPeers, filters, config as configStore } from './lib/stores';
+  import { api } from './lib/api';
+  import { connectWs, onWsEvent } from './lib/ws';
+  import StatusBar from './components/StatusBar.svelte';
+  import './app.css';
+
+  // Hash-based routing (no dependencies)
+  let route = window.location.hash || '#/';
+  window.addEventListener('hashchange', () => { route = window.location.hash; });
+
+  let tokenInput = '';
+  let authError = '';
+
+  async function tryAuth() {
+    token.set(tokenInput.trim());
+    try {
+      const id = await api.getIdentity();
+      identity.set(id);
+      authError = '';
+      bootstrap();
+    } catch (e: any) {
+      authError = e.message === 'unauthorized' ? 'Incorrect token.' : e.message;
+      token.set('');
+    }
+  }
+
+  async function bootstrap() {
+    connectWs($token);
+    onWsEvent((e) => {
+      if (e.type === 'node_ready') nodeReady.set(true);
+      if (e.type === 'sync_started') syncStatus.set('syncing');
+      if (e.type === 'sync_done') {
+        syncStatus.set('idle');
+        lastSyncCount.set((e.count as number) ?? 0);
+      }
+    });
+
+    try {
+      const [g, id, cfg] = await Promise.all([
+        api.listGroups(),
+        api.getIdentity(),
+        api.getConfig(),
+      ]);
+      groups.set(g);
+      identity.set(id);
+      configStore.set(cfg);
+      nodeReady.set(true);
+    } catch (e: any) {
+      if (e.message === 'starting up') {
+        // Will become ready when node_ready WS event arrives
+        nodeReady.set(false);
+      }
+    }
+  }
+
+  onMount(() => {
+    if ($token) bootstrap();
+  });
 </script>
 
-<section id="center">
-  <div class="hero">
-    <img src={heroImg} class="base" width="170" height="179" alt="" />
-    <img src={svelteLogo} class="framework" alt="Svelte logo" />
-    <img src={viteLogo} class="vite" alt="Vite logo" />
+{#if !$token}
+  <!-- Token entry screen -->
+  <div class="auth-screen">
+    <h1>ReticulumNewsnet</h1>
+    <p>Enter your node access token to connect.</p>
+    <input type="password" bind:value={tokenInput} placeholder="Access token" on:keydown={(e) => e.key === 'Enter' && tryAuth()} />
+    {#if authError}<p class="error">{authError}</p>{/if}
+    <button class="primary" on:click={tryAuth}>Connect</button>
   </div>
-  <div>
-    <h1>Get started</h1>
-    <p>Edit <code>src/App.svelte</code> and save to test <code>HMR</code></p>
-  </div>
-  <Counter />
-</section>
+{:else}
+  <div class="layout">
+    <div class="statusbar"><StatusBar /></div>
 
-<div class="ticks"></div>
+    <aside class="sidebar">
+      <!-- Sidebar content loaded by Groups route -->
+      {#await import('./routes/Groups.svelte') then { default: Groups }}
+        <svelte:component this={Groups} />
+      {/await}
+    </aside>
 
-<section id="next-steps">
-  <div id="docs">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#documentation-icon"></use>
-    </svg>
-    <h2>Documentation</h2>
-    <p>Your questions, answered</p>
-    <ul>
-      <li>
-        <a href="https://vite.dev/" target="_blank" rel="noreferrer">
-          <img class="logo" src={viteLogo} alt="" />
-          Explore Vite
-        </a>
-      </li>
-      <li>
-        <a href="https://svelte.dev/" target="_blank" rel="noreferrer">
-          <img class="button-icon" src={svelteLogo} alt="" />
-          Learn more
-        </a>
-      </li>
-    </ul>
+    <main class="main">
+      {#if route === '#/' || route.startsWith('#/group')}
+        {#await import('./routes/Thread.svelte') then { default: Thread }}
+          <svelte:component this={Thread} />
+        {/await}
+      {:else if route === '#/peers'}
+        {#await import('./routes/Peers.svelte') then { default: Peers }}
+          <svelte:component this={Peers} />
+        {/await}
+      {:else if route === '#/filters'}
+        {#await import('./routes/Filters.svelte') then { default: Filters }}
+          <svelte:component this={Filters} />
+        {/await}
+      {:else if route === '#/settings'}
+        {#await import('./routes/Settings.svelte') then { default: Settings }}
+          <svelte:component this={Settings} />
+        {/await}
+      {/if}
+    </main>
   </div>
-  <div id="social">
-    <svg class="icon" role="presentation" aria-hidden="true">
-      <use href="/icons.svg#social-icon"></use>
-    </svg>
-    <h2>Connect with us</h2>
-    <p>Join the Vite community</p>
-    <ul>
-      <li>
-        <a href="https://github.com/vitejs/vite" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#github-icon"></use>
-          </svg>
-          GitHub
-        </a>
-      </li>
-      <li>
-        <a href="https://chat.vite.dev/" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#discord-icon"></use>
-          </svg>
-          Discord
-        </a>
-      </li>
-      <li>
-        <a href="https://x.com/vite_js" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#x-icon"></use>
-          </svg>
-          X.com
-        </a>
-      </li>
-      <li>
-        <a href="https://bsky.app/profile/vite.dev" target="_blank" rel="noreferrer">
-          <svg class="button-icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#bluesky-icon"></use>
-          </svg>
-          Bluesky
-        </a>
-      </li>
-    </ul>
-  </div>
-</section>
+{/if}
 
-<div class="ticks"></div>
-<section id="spacer"></section>
+<style>
+  .auth-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    gap: 12px;
+    max-width: 320px;
+    margin: auto;
+  }
+  .auth-screen h1 { font-size: 1.4rem; }
+  .error { color: var(--accent); font-size: 0.85rem; }
+</style>
