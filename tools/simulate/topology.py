@@ -1,6 +1,5 @@
 from __future__ import annotations
 import random
-from typing import Any
 
 
 def full_mesh(nodes: list) -> list[tuple]:
@@ -15,6 +14,8 @@ def full_mesh(nodes: list) -> list[tuple]:
 def sparse_random(nodes: list, k: int) -> list[tuple]:
     """Each node gets k random peers. No node is isolated.
     Returns deduplicated (a, b) pairs where a.index < b.index."""
+    if len(nodes) < 2:
+        return []
     n = len(nodes)
     k = min(k, n - 1)
     pair_set: set[tuple[int, int]] = set()
