@@ -38,12 +38,22 @@ if getattr(sys, "frozen", False):
 
 
 def _load_config():
+    import os
     from newsnet.config import NewsnetConfig
-    cfg = NewsnetConfig()
+    config_dir = os.environ.get("NEWSNET_CONFIG_DIR") or None
+    cfg = NewsnetConfig(config_dir_override=config_dir)
     cfg.ensure_dirs()
     if cfg.config_file_path.exists():
         cfg = NewsnetConfig.from_file(cfg.config_file_path)
+        cfg.config_dir_override = config_dir  # restore — from_file doesn't persist it
     return cfg
+
+
+def _open_browser_if_allowed(url: str) -> None:
+    """Open browser after a short delay, unless NEWSNET_NO_BROWSER is set."""
+    import os, threading, webbrowser
+    if not os.environ.get("NEWSNET_NO_BROWSER"):
+        threading.Timer(1.5, webbrowser.open, args=[url]).start()
 
 
 def _run_server(config):
@@ -63,10 +73,20 @@ def _run_server(config):
     else:
         node = Node(config)
 
+    # Start node in main thread — RNS.Reticulum() calls signal.signal() which
+    # requires the main thread. Must happen before uvicorn's event loop starts.
+    node.start()
+    node.start_sync_loop()
+
     hub = WebSocketHub()
     app = create_app(config=config, node=node, hub=hub)
 
-    print(f"[newsnet] Web interface: http://{config.api_host}:{config.api_port}")
+    url = f"http://{config.api_host}:{config.api_port}/"
+    print(f"[newsnet] Starting at {url}")
+
+    # Open the browser automatically after the server has had a moment to start
+    _open_browser_if_allowed(url)
+
     uvicorn.run(app, host=config.api_host, port=config.api_port, log_level="warning")
 
 
