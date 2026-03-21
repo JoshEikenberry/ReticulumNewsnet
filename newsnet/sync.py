@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+import zlib
 
 import RNS
 import RNS.Channel
@@ -57,10 +58,10 @@ class ArticleDataMessage(RNS.Channel.MessageBase):
         self.articles = articles or []
 
     def pack(self) -> bytes:
-        return umsgpack.packb(self.articles)
+        return zlib.compress(umsgpack.packb(self.articles), level=zlib.Z_BEST_COMPRESSION)
 
     def unpack(self, raw: bytes):
-        self.articles = umsgpack.unpackb(raw)
+        self.articles = umsgpack.unpackb(zlib.decompress(raw))
 
 
 class SyncCompleteMessage(RNS.Channel.MessageBase):
@@ -259,6 +260,9 @@ class SyncSession:
         """Handle small articles sent via channel. Only process if we requested them."""
         with self._lock:
             rids = set(self._requested_ids)
+        if not rids:
+            log.warning("Received ArticleDataMessage but no articles were requested — ignoring")
+            return
         for article_data in message.articles:
             self.sync_engine.process_received_article(article_data, requested_ids=rids)
 

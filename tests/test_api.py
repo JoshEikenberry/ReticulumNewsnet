@@ -52,6 +52,7 @@ def test_get_identity():
     node._identity_mgr = MagicMock()
     node._identity_mgr.identity = MagicMock()
     node._identity_mgr.identity.hash = b"\xa3\xf9\xd2\xc1" + b"\x00" * 12
+    node._identity_mgr.identity.get_public_key.return_value = b"\x00" * 32
     client = _make_client(node)
     r = client.get("/api/identity", headers={"Authorization": f"Bearer {TOKEN}"})
     assert r.status_code == 200

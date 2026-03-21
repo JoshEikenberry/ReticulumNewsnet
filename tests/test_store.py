@@ -39,6 +39,7 @@ def test_store_and_retrieve_article():
     assert result["message_id"] == "abc123"
     assert result["author_hash"] == "author_hash_1"
     assert result["body"] == "This is a test article."
+    store.close()
     os.unlink(path)
 
 
@@ -51,6 +52,7 @@ def test_list_articles_by_newsgroup():
     assert len(results) == 2
     ids = {r["message_id"] for r in results}
     assert ids == {"a1", "a3"}
+    store.close()
     os.unlink(path)
 
 
@@ -61,6 +63,7 @@ def test_list_newsgroups():
     store.store_article(make_article(message_id="a3", newsgroup="tech.linux"))
     groups = store.list_newsgroups()
     assert set(groups) == {"tech.linux", "music.jazz"}
+    store.close()
     os.unlink(path)
 
 
@@ -72,6 +75,7 @@ def test_get_article_ids_since():
     ids = store.get_article_ids_since(now - 3600)
     assert len(ids) == 1
     assert ids[0][0] == "new"
+    store.close()
     os.unlink(path)
 
 
@@ -85,6 +89,7 @@ def test_retention_cleanup():
     assert store.get_article("keep") is not None
     assert store.get_article("expire") is None
     assert not store.has_tombstone("tomb1")
+    store.close()
     os.unlink(path)
 
 
@@ -93,6 +98,7 @@ def test_tombstones():
     assert not store.has_tombstone("msg1")
     store.add_tombstone("msg1")
     assert store.has_tombstone("msg1")
+    store.close()
     os.unlink(path)
 
 
@@ -103,6 +109,7 @@ def test_duplicate_article_ignored():
     store.store_article(article)  # should not raise
     results = store.list_articles()
     assert len(results) == 1
+    store.close()
     os.unlink(path)
 
 
@@ -116,6 +123,7 @@ def test_store_and_list_peers():
     store.update_peer_synced("hash1", now + 60)
     peer = store.get_peer("hash1")
     assert peer["last_synced"] == now + 60
+    store.close()
     os.unlink(path)
 
 
