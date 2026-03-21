@@ -87,3 +87,31 @@ def test_metrics_throughput():
         node_names=["a", "b"], missing={},
     )
     assert m.throughput() == 2.0
+
+
+def test_metrics_per_node_received():
+    records = {f"mid-{i}": PostRecord(f"mid-{i}", 0.0, 0, "g") for i in range(4)}
+    m = Metrics(
+        node_count=2, article_count=4, topology="full-mesh",
+        convergence_time=5.0, post_records=records, first_seen={},
+        node_names=["a", "b"], missing={1: ["mid-2", "mid-3"]},
+    )
+    received = m.per_node_received()
+    assert received[0] == 4   # node 0: no missing
+    assert received[1] == 2   # node 1: 2 missing
+
+
+def test_metrics_per_node_posted():
+    records = {
+        "mid-0": PostRecord("mid-0", 0.0, 0, "g"),
+        "mid-1": PostRecord("mid-1", 0.0, 0, "g"),
+        "mid-2": PostRecord("mid-2", 0.0, 1, "g"),
+    }
+    m = Metrics(
+        node_count=2, article_count=3, topology="full-mesh",
+        convergence_time=5.0, post_records=records, first_seen={},
+        node_names=["a", "b"], missing={},
+    )
+    posted = m.per_node_posted()
+    assert posted[0] == 2  # node 0 posted 2
+    assert posted[1] == 1  # node 1 posted 1
