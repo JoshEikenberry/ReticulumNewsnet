@@ -5,8 +5,9 @@
 
   export let articles: Article[];
   export let depth: number = 0;
+  export let parentId: string | null = null;
 
-  // Build reply tree
+  // Build reply tree — keyed by parent message_id (null = root)
   function buildTree(all: Article[]): Map<string | null, Article[]> {
     const tree = new Map<string | null, Article[]>();
     for (const a of all) {
@@ -20,12 +21,12 @@
     return tree;
   }
 
+  // Full tree is built at every level but parentId controls which children render
   $: tree = buildTree(articles);
-  $: roots = tree.get(null) ?? [];
+  $: roots = tree.get(parentId) ?? [];
 
   function selectArticle(id: string) {
     selectedArticleId.set(id);
-    window.location.hash = `#/article/${encodeURIComponent(id)}`;
   }
 </script>
 
@@ -34,6 +35,6 @@
     <ArticleComp article={root} depth={depth} compact={true} />
   </div>
   {#if tree.has(root.message_id)}
-    <svelte:self articles={tree.get(root.message_id) ?? []} depth={depth + 1} />
+    <svelte:self {articles} depth={depth + 1} parentId={root.message_id} />
   {/if}
 {/each}

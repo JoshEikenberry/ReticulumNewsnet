@@ -29,7 +29,7 @@
         body: body.trim(),
         references: replyTo ? [replyTo] : [],
       });
-      dispatch('close');
+      dispatch('close', { newsgroup: selectedGroup.trim() });
     } catch (e: any) {
       error = e.message;
     } finally {

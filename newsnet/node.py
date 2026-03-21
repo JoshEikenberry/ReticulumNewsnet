@@ -61,8 +61,12 @@ class Node:
         return self._sync_engine
 
     def start(self):
+        import os
         self.config.ensure_dirs()
-        self._reticulum = RNS.Reticulum()
+        # Suppress noisy-but-harmless interface warnings by default.
+        # Set NEWSNET_DEBUG=1 to restore full RNS logging.
+        loglevel = -1 if os.environ.get("NEWSNET_DEBUG") else 0
+        self._reticulum = RNS.Reticulum(loglevel=loglevel)
         identity = self._identity_mgr.get_or_create()
 
         self._destination = RNS.Destination(

@@ -4,6 +4,8 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from api.auth import require_token
+from newsnet.filters import FilterEngine
+from newsnet.identity_words import hash_to_words
 
 router = APIRouter()
 
@@ -16,12 +18,15 @@ class PostArticleBody(BaseModel):
 
 
 def _serialize_article(a: dict) -> dict:
+    author_key = a.get("author_key")
+    author_words = hash_to_words(bytes(author_key)) if author_key else ""
     return {
         "message_id": a["message_id"],
         "newsgroup": a["newsgroup"],
         "subject": a["subject"],
         "body": a["body"],
         "author_hash": a["author_hash"],
+        "author_words": author_words,
         "display_name": a["display_name"],
         "timestamp": a["timestamp"],
         "references": json.loads(a["references"]) if isinstance(a.get("references"), str) else (a.get("references") or []),
@@ -31,9 +36,22 @@ def _serialize_article(a: dict) -> dict:
 
 @router.get("/articles", dependencies=[Depends(require_token)])
 async def list_articles(request: Request, group: Optional[str] = None, after: Optional[float] = None):
-    articles = request.app.state.node.store.list_articles(newsgroup=group)
+    node = request.app.state.node
+    articles = node.store.list_articles(newsgroup=group)
     if after is not None:
         articles = [a for a in articles if a["timestamp"] > after]
+
+    # Apply filters at read time so newly-added filters hide already-stored articles.
+    # Own posts are always shown regardless of filter rules.
+    own_hash = node._identity_mgr.hash_hex
+    filters = node.filter_store.list_filters()
+    if filters:
+        engine = FilterEngine(filters)
+        articles = [
+            a for a in articles
+            if a.get("author_hash") == own_hash or engine.should_keep(a)
+        ]
+
     return [_serialize_article(a) for a in articles]
 
 

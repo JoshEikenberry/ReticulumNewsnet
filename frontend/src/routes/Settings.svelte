@@ -46,8 +46,9 @@
   {#if $identity}
     <section>
       <h3>Your Identity</h3>
+      <p class="identity-words">{$identity.identity_words}</p>
       <p class="mono">{$identity.identity_hash}</p>
-      <p class="muted">This is your cryptographic identity. Every post you write is signed with it.</p>
+      <p class="muted">Your identity words are a human-readable label for your cryptographic identity. Share them so others can recognise you. Every post you write is signed with this identity.</p>
       {#if $identity.tcp_address}
         <p><strong>Node address:</strong> <code>{$identity.tcp_address}</code>
           <span class="muted"> — share this with friends to connect over the internet</span></p>
@@ -122,6 +123,7 @@
   label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; margin-bottom: 10px; }
   .checkbox-label { flex-direction: row; align-items: center; gap: 8px; }
   .checkbox-label input { width: auto; }
+  .identity-words { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.03em; margin-bottom: 4px; }
   .mono { font-family: monospace; font-size: 0.8rem; word-break: break-all; color: var(--text-muted); }
   .token-display { display: block; font-size: 0.8rem; word-break: break-all; margin-bottom: 4px; }
   .muted { color: var(--text-muted); font-size: 0.8rem; }

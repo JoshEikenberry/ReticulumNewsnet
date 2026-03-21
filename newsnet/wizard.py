@@ -61,6 +61,7 @@ def run_wizard(config: NewsnetConfig, add_peer_fn: Callable[[str], None] | None 
         local_ip = socket.gethostbyname(socket.gethostname())
     except Exception:
         local_ip = "localhost"
-    print(f"  Web interface: http://{local_ip}:{config.api_port}")
-    print(f"  Access token:  {config.api_token}")
-    print("  (Token is also shown on the Settings page in the web UI)\n")
+    url = f"http://{local_ip}:{config.api_port}/?token={config.api_token}"
+    print(f"  Open this link in your browser:")
+    print(f"  {url}")
+    print("  (Your token is saved — future visits won't need it again)\n")

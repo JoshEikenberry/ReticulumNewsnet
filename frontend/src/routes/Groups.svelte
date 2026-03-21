@@ -16,7 +16,7 @@
 </script>
 
 <div class="groups-panel">
-  <div class="section-header">GROUPS</div>
+  <div class="section-header"><a href="#/">GROUPS</a></div>
   {#each $groups as g}
     <button
       class="group-item"

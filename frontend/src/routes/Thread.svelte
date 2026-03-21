@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currentArticles, selectedGroup, selectedArticleId, articlesByGroup } from '../lib/stores';
+  import { currentArticles, selectedGroup, selectedArticleId, articlesByGroup, groups } from '../lib/stores';
   import { api } from '../lib/api';
   import ThreadTree from '../components/ThreadTree.svelte';
   import ArticleComp from '../components/Article.svelte';
@@ -7,7 +7,18 @@
 
   let showCompose = false;
 
-  // Listen for new articles over WS and refresh group
+  async function refreshGroup(newsgroup: string) {
+    // Ensure the group appears in the sidebar
+    const allGroups = await api.listGroups();
+    groups.set(allGroups);
+    // Load its articles and navigate to it
+    const articles = await api.listArticles(newsgroup);
+    articlesByGroup.update(m => ({ ...m, [newsgroup]: articles }));
+    selectedGroup.set(newsgroup);
+    window.location.hash = `#/group/${encodeURIComponent(newsgroup)}`;
+  }
+
+  // Listen for new articles over WS and refresh current group
   onWsEvent(async (e) => {
     if (e.type === 'new_article' && e.article && $selectedGroup) {
       const articles = await api.listArticles($selectedGroup);
@@ -21,7 +32,21 @@
 </script>
 
 {#if !$selectedGroup}
-  <div class="empty-state">Select a group to start reading.</div>
+  <div class="empty-state">
+    <p>Select a group to start reading, or create the first post.</p>
+    <button class="primary" on:click={() => showCompose = true}>+ New Post</button>
+  </div>
+  {#if showCompose}
+    {#await import('./Compose.svelte') then { default: Compose }}
+      <svelte:component
+        this={Compose}
+        newsgroup=""
+        replyTo={null}
+        replySubject=""
+        on:close={(e) => { showCompose = false; if (e.detail?.newsgroup) refreshGroup(e.detail.newsgroup); }}
+      />
+    {/await}
+  {/if}
 {:else}
   <div class="thread-layout">
     <div class="thread-list">
@@ -47,7 +72,7 @@
         newsgroup={$selectedGroup}
         replyTo={selectedArticle?.message_id ?? null}
         replySubject={selectedArticle ? `Re: ${selectedArticle.subject}` : ''}
-        on:close={() => showCompose = false}
+        on:close={(e) => { showCompose = false; if (e.detail?.newsgroup) refreshGroup(e.detail.newsgroup); }}
       />
     {/await}
   {/if}

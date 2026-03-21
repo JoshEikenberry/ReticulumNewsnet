@@ -55,7 +55,28 @@
     }
   }
 
-  onMount(() => {
+  onMount(async () => {
+    // If token is in the URL (?token=...), store it and clean the URL
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken) {
+      token.set(urlToken);
+      const clean = window.location.pathname + window.location.hash;
+      window.history.replaceState(null, '', clean);
+    }
+
+    // For localhost connections, fetch the token automatically — no manual entry needed.
+    // (Remote/phone users still use the token gate.)
+    if (!$token) {
+      try {
+        const res = await fetch('/api/local-auth');
+        if (res.ok) {
+          const data = await res.json();
+          token.set(data.token);
+        }
+      } catch (_) { /* not localhost or server not ready */ }
+    }
+
     if ($token) bootstrap();
   });
 </script>

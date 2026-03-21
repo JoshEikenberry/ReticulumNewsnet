@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-import asyncio
 import logging
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
 
-from fastapi import FastAPI, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.staticfiles import StaticFiles
 
 from newsnet.config import NewsnetConfig
@@ -18,9 +17,8 @@ log = logging.getLogger(__name__)
 def _make_lifespan(node, hub: WebSocketHub):
     @asynccontextmanager
     async def lifespan(app: FastAPI):
-        loop = asyncio.get_event_loop()
-        await loop.run_in_executor(None, node.start)
-        await loop.run_in_executor(None, node.start_sync_loop)
+        # node.start() and node.start_sync_loop() were already called in the
+        # main thread before uvicorn started (signal.signal requires main thread).
         app.state.startup_state = "ready"
         await hub.broadcast({"type": "node_ready"})
         log.info("Node ready — API fully operational")
@@ -74,6 +72,13 @@ def create_app(
     app.include_router(peers.router, prefix="/api")
     app.include_router(sync_route.router, prefix="/api")
     app.include_router(filters.router, prefix="/api")
+
+    # Localhost-only token endpoint — lets browser auto-connect without manual entry
+    @app.get("/api/local-auth")
+    async def local_auth(request: Request):
+        if request.client and request.client.host not in ("127.0.0.1", "::1"):
+            raise HTTPException(status_code=403, detail="local connections only")
+        return {"token": request.app.state.config.api_token}
 
     # WebSocket endpoint (not subject to 503 guard — /ws not /api/*)
     from api.routes import websocket_route

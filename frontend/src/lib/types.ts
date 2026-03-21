@@ -4,6 +4,7 @@ export interface Article {
   subject: string;
   body: string;
   author_hash: string;
+  author_words: string;
   display_name: string;
   timestamp: number;
   references: string[];
@@ -36,6 +37,7 @@ export interface Filter {
 
 export interface Identity {
   identity_hash: string;
+  identity_words: string;
   display_name: string;
   tcp_address: string | null;
 }

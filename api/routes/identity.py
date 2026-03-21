@@ -2,6 +2,7 @@ from __future__ import annotations
 import socket
 from fastapi import APIRouter, Depends, Request
 from api.auth import require_token
+from newsnet.identity_words import hash_to_words
 
 router = APIRouter()
 
@@ -12,6 +13,7 @@ async def get_identity(request: Request):
     cfg = request.app.state.config
     identity = node._identity_mgr.identity
     identity_hash = identity.hash.hex() if identity.hash else ""
+    identity_words = hash_to_words(identity.get_public_key())
 
     # tcp_address: only meaningful if not bound to localhost
     tcp_address = None
@@ -24,6 +26,7 @@ async def get_identity(request: Request):
 
     return {
         "identity_hash": identity_hash,
+        "identity_words": identity_words,
         "display_name": cfg.display_name,
         "tcp_address": tcp_address,
     }
