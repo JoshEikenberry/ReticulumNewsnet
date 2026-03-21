@@ -86,3 +86,27 @@ def test_simulation_teardown_closes_all_nodes():
 
     for node in mock_nodes:
         node.close.assert_called_once()
+
+
+def test_simulation_collect_metrics_returns_metrics():
+    cfg = SimulationConfig(nodes=2, articles=2, topology="full-mesh")
+    sim = Simulation(cfg)
+
+    node0 = make_mock_node(0, 19000, article_ids=["mid-1", "mid-2"])
+    node1 = make_mock_node(1, 19001, article_ids=["mid-1"])
+    sim.nodes = [node0, node1]
+    sim._posted_ids = {"mid-1", "mid-2"}
+    sim._post_records = {
+        "mid-1": MagicMock(node_index=0),
+        "mid-2": MagicMock(node_index=0),
+    }
+
+    from tools.simulate.models import ConvergenceResult
+    result = ConvergenceResult(timed_out=False, convergence_time=3.0, first_seen={})
+    metrics = sim.collect_metrics(result)
+
+    assert metrics.node_count == 2
+    assert metrics.article_count == 2
+    assert metrics.convergence_time == 3.0
+    assert 1 in metrics.missing  # node 1 missing mid-2
+    assert "mid-2" in metrics.missing[1]
