@@ -1,7 +1,5 @@
 # tests/test_simulate_metrics.py
-from tools.simulate.models import Metrics, PostRecord
 from tools.simulate.metrics import compute_percentile, build_missing_map
-import statistics
 
 
 def test_compute_percentile_p50():
